@@ -115,6 +115,24 @@
         </div>
       </div>
     </div>
+    <div class="w-full bg-blue-600 dark:bg-blue-700 py-1.5 overflow-hidden whitespace-nowrap group">
+      <div
+        class="inline-block animate-marquee group-hover:[animation-play-state:paused] cursor-pointer"
+      >
+        <span class="text-xs font-medium text-white px-4">
+          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
+          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
+        </span>
+        <span class="text-xs font-medium text-white px-4">
+          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
+          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
+        </span>
+        <span class="text-xs font-medium text-white px-4">
+          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
+          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
+        </span>
+      </div>
+    </div>
   </header>
 </template>
 

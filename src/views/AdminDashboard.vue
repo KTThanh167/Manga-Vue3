@@ -179,26 +179,32 @@ const userManagementRef = ref(null)
 const mangaManagementRef = ref(null)
 
 // Kiểm tra quyền admin
+
 const checkAdminAccess = async () => {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
   if (!user) {
     router.push('/login')
     return false
   }
 
+  // FIX: Dùng app_metadata để check quyền
+  const userRole = user.app_metadata?.role
+
+  if (userRole !== 'admin') {
+    alert('Bạn không có quyền truy cập trang này!')
+    router.push('/')
+    return false
+  }
+
+  // Vẫn lấy profile để hiển thị username lên giao diện
   const { data: profile } = await supabase
     .from('profiles')
     .select('role, username')
     .eq('id', user.id)
     .single()
-
-  if (profile?.role !== 'admin') {
-    alert('Bạn không có quyền truy cập trang này!')
-    router.push('/')
-    return false
-  }
 
   userProfile.value = profile
   return true
