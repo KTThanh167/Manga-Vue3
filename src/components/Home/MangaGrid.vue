@@ -1,5 +1,6 @@
 <script setup>
 import { useHomeStore } from '../../stores/home'
+import Pagination from './PaginationSession.vue'
 
 const homeStore = useHomeStore()
 </script>
@@ -64,6 +65,7 @@ const homeStore = useHomeStore()
         </div>
       </div>
     </div>
+    <Pagination />
   </div>
 </template>
 

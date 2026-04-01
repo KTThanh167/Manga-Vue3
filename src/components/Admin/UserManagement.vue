@@ -239,13 +239,13 @@ const fetchUsers = async () => {
     const { data: profileUsers, error: profileError } = await supabase
       .from('profiles')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     // Lấy users từ custom_users (thêm thủ công)
     const { data: customUsers, error: customError } = await supabase
       .from('custom_users')
       .select('*')
-      .order('created_at', { ascending: false })
+      .order('updated_at', { ascending: false })
 
     if (profileError) {
       console.error('Error fetching profiles:', profileError)

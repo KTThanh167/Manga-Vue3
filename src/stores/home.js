@@ -13,9 +13,13 @@ export const useHomeStore = defineStore('home', () => {
   const onlineCount = ref(1)
   const currentUser = ref(null)
 
+  // --- TRẠNG THÁI PHÂN TRANG (MỚI THÊM) ---
+  const currentPage = ref(1)
+  const totalItems = ref(0) // Tổng số truyện để tính toán nếu cần
+
   const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
-  // --- LOGIC AI GỢI Ý (NẰM TRONG COMPONENT LUÔN ĐỂ BẠN DỄ QUẢN LÝ) ---
+  // --- LOGIC AI GỢI Ý  ---
   const runAIRecommendation = (history, allMangas) => {
     if (!history?.length) return
 
@@ -41,19 +45,35 @@ export const useHomeStore = defineStore('home', () => {
     }
   }
 
-  // --- FETCH DỮ LIỆU TỔNG HỢP ---
-  const fetchHomeData = async () => {
+  // --- FETCH DỮ LIỆU TỔNG HỢP (REFACTORED ĐỂ HỖ TRỢ PAGE) ---
+  const fetchHomeData = async (page = 1) => {
     loading.value = true
+    currentPage.value = page // Cập nhật trang hiện tại
+
     try {
-      // Bước 1: Lấy truyện mới từ API
-      const res = await axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi')
-      if (res.data.status === 'success') mangas.value = res.data.data.items
+      // Bước 1: Lấy truyện mới từ API (Đã thêm query param page)
+      const res = await axios.get(`https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${page}`)
+
+      if (res.data.status === 'success') {
+        mangas.value = res.data.data.items
+        // Lưu tổng số truyện nếu API có trả về (để làm phân trang chuẩn hơn)
+        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+
+        // Cuộn lên đầu trang mỗi khi chuyển trang
+        if (page > 1) {
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }
 
       // Bước 2 & 3: Kiểm tra User, lấy lịch sử từ Supabase và chạy AI nếu có
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      if (user) {
+
+      currentUser.value = user // Cập nhật user hiện tại vào store
+
+      // Chỉ chạy AI gợi ý ở trang 1 để tránh tính toán lại lặp đi lặp lại khi chuyển trang
+      if (user && page === 1) {
         const { data: history } = await supabase
           .from('reading_history')
           .select('category_list')
@@ -81,7 +101,7 @@ export const useHomeStore = defineStore('home', () => {
     const channel = supabase.channel('online-users', {
       config: {
         presence: {
-          key: user?.id || 'guest-' + Math.random(),
+          key: user?.id || 'guest-' + Math.random().toString(36).substring(7),
         },
       },
     })
@@ -103,6 +123,7 @@ export const useHomeStore = defineStore('home', () => {
   }
 
   return {
+    // State
     mangas,
     recommendedList,
     topCategory,
@@ -110,7 +131,10 @@ export const useHomeStore = defineStore('home', () => {
     error,
     onlineCount,
     currentUser,
+    currentPage,
+    totalItems,
     IMAGE_RESOURCES,
+    // Actions
     fetchHomeData,
     fetchAndListen,
   }

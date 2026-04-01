@@ -8,33 +8,41 @@ export const useMangaStore = defineStore('manga', {
   }),
 
   actions: {
-    async recordReadingHistory(manga) {
-      const auth = useAuthStore()
-      if (!auth.user) return // Nếu chưa đăng nhập thì không lưu hoặc lưu vào LocalStorage tùy bạn
+    // stores/manga.js
+    // stores/manga.js
+    async recordReadingHistory(manga, chapter) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
 
       const historyData = {
-        user_id: auth.user.id,
-        manga_name: manga.title,
+        user_id: user.id,
         manga_slug: manga.slug,
-        category_list: manga.categories || [], // Đảm bảo là một mảng
+        manga_name: manga.title,
+        category_list: manga.categories || [],
         last_read_at: new Date().toISOString(),
+        // ĐẢM BẢO TÊN CỘT KHỚP VỚI HÌNH ẢNH SUPABASE BẠN GỬI
+        last_chapter_name: chapter.name,
+        last_chapter_id: String(chapter.id),
       }
 
-      // Sử dụng upsert: Supabase sẽ dựa vào 'manga_slug' và 'user_id' để quyết định
-      // (Lưu ý: Bạn cần thiết lập Unique Constraint trên Database cho cặp user_id + manga_slug)
       const { data, error } = await supabase
         .from('reading_history')
         .upsert(historyData, {
-          onConflict: 'user_id, manga_slug',
+          onConflict: 'user_id, manga_slug', // Giúp cập nhật dòng cũ, không tạo dòng mới
         })
         .select()
 
-      if (!error) {
-        // Cập nhật lại state trong Pinia để UI thay đổi ngay lập tức
-        this.fetchReadingHistory()
-        console.log(data)
-      } else {
-        console.error('Lỗi lưu lịch sử:', error.message)
+      if (!error && data) {
+        // Cập nhật State để UI bên trang Lịch sử nhảy dữ liệu ngay
+        const index = this.readingHistory.findIndex((i) => i.manga_slug === manga.slug)
+        if (index !== -1) {
+          this.readingHistory.splice(index, 1)
+        }
+        this.readingHistory.unshift(data[0])
+      } else if (error) {
+        console.error('Lỗi lưu DB:', error.message)
       }
     },
 
