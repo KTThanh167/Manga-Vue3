@@ -53,10 +53,42 @@ const fetchChapterData = async () => {
 }
 
 // Chuyển chương
-const changeChapter = (offset) => {
-  const nextChapter = parseInt(route.params.chapter) + offset
-  if (nextChapter > 0) {
-    router.push(`/doc-truyen/${route.params.slug}/${nextChapter}`)
+const changeChapter = async (offset) => {
+  const nextChapterNum = parseInt(route.params.chapter) + offset
+
+  if (nextChapterNum <= 0) return
+
+  try {
+    loading.value = true
+
+    // Lấy danh sách chapter để tìm chapter kế tiếp
+    const listResponse = await axios.get(
+      `https://otruyenapi.com/v1/api/truyen-tranh/${route.params.slug}`,
+      { params: { limit: 1000 } },
+    )
+
+    if (listResponse.data.status === 'success') {
+      const chapters = listResponse.data.data.item.chapters[0].server_data
+
+      // Tìm chapter kế tiếp (sử dụng chapter_name thay vì chapter_index)
+      const nextChapter = chapters.find((ch) => parseInt(ch.chapter_name) === nextChapterNum)
+
+      if (nextChapter?.chapter_api_data) {
+        // Navigate kèm API link chính xác
+        router.push({
+          name: 'ReadManga',
+          params: { slug: route.params.slug, chapter: nextChapterNum },
+          query: { api: nextChapter.chapter_api_data },
+        })
+      } else {
+        alert('Chương tiếp theo chưa được cập nhật!')
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching next chapter:', err)
+    alert('Không thể lấy dữ liệu chương tiếp theo')
+  } finally {
+    loading.value = false
   }
 }
 

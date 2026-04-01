@@ -7,8 +7,11 @@ export const useAuthStore = defineStore('auth', {
     user: null,
     userProfile: null,
   }),
-
-  // 2. Actions: Các hàm xử lý logic
+  // 2. Getters: Các hàm tính toán dựa trên state
+  getters: {
+    isAdmin: (state) => state.userProfile?.role === 'admin',
+  },
+  // 3. Actions: Các hàm xử lý logic
   actions: {
     async fetchProfile() {
       // Lấy user đang đăng nhập từ session
