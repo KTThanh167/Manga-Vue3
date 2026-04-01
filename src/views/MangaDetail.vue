@@ -2,53 +2,49 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
-import { supabase } from '../lib/supabaseClient'
+import { useMangaStore } from '../stores/manga' // 1. Import Pinia Store
 
 const route = useRoute()
+const mangaStore = useMangaStore() // 2. Khởi tạo store
 const manga = ref(null)
 const loading = ref(true)
 const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
-// Hàm lưu lịch sử vào Supabase để phục vụ AI
-const saveHistory = async (mangaData) => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return // Nếu chưa login thì không lưu
-
-  const categories = mangaData.category.map((c) => c.name)
-
-  const { error } = await supabase.from('reading_history').insert({
-    user_id: user.id,
-    manga_slug: mangaData.slug,
-    manga_name: mangaData.name,
-    category_list: categories, // Đây là dữ liệu quan trọng cho AI
-    last_read_at: new Date(),
-  })
-
-  if (error) console.error('Lỗi lưu lịch sử:', error.message)
-}
-
+// Hàm fetch dữ liệu truyện
 const fetchMangaDetail = async () => {
-  loading.value = true // Đảm bảo bật loading khi bắt đầu
+  loading.value = true
   try {
     const slug = route.params.slug
     const response = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`)
 
-    // Kiểm tra kỹ cấu trúc data của Otruyen
     if (response.data && response.data.status === 'success') {
       manga.value = response.data.data.item
-
-      // Chỉ lưu lịch sử sau khi đã có dữ liệu manga
-      if (manga.value) {
-        saveHistory(manga.value)
-      }
+      // Lưu ý: Không gọi saveHistory ở đây nữa để tránh lưu rác khi user chỉ xem thông tin mà chưa đọc
     }
   } catch (err) {
     console.error('Lỗi API chi tiết:', err)
   } finally {
-    loading.value = false // Tắt loading dù thành công hay thất bại
+    loading.value = false
   }
+}
+
+// 3. Hàm xử lý khi người dùng nhấn vào một chương
+const handleReadChapter = (chapter) => {
+  if (!manga.value) return
+
+  // Đảm bảo các trường dữ liệu khớp với những gì Store đang chờ đợi
+  mangaStore.recordReadingHistory(
+    {
+      title: manga.value.name,
+      slug: manga.value.slug,
+      // Map đúng mảng categories
+      categories: manga.value.category ? manga.value.category.map((c) => c.name) : [],
+    },
+    {
+      name: `Chương ${chapter.chapter_name}`, // Sẽ lưu vào last_chapter_name
+      id: chapter.chapter_name, // Sẽ lưu vào last_chapter_id
+    },
+  )
 }
 
 onMounted(() => {
@@ -63,18 +59,14 @@ onMounted(() => {
     </div>
 
     <div v-else-if="manga">
-      <nav class="text-sm text-gray-500 mb-4">
-        <router-link to="/" class="hover:text-indigo-600">Trang chủ</router-link> /
-        <span>{{ manga.name }}</span>
-      </nav>
-
       <div
-        class="flex flex-col md:flex-row gap-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100"
+        class="flex flex-col md:flex-row gap-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mt-[20px]"
       >
-        <div class="w-full md:w-1/3 lg:w-1/4">
+        <div class="w-full md:w-1/3 lg:w-1/4 overflow-hidden">
           <img
             :src="`${IMAGE_RESOURCES}${manga.thumb_url}`"
-            class="w-full rounded-xl shadow-lg shadow-indigo-100"
+            class="w-full aspect-[2/3] object-cover rounded-xl shadow-lg shadow-indigo-100 brightness-95 contrast-105"
+            loading="lazy"
           />
         </div>
 
@@ -93,13 +85,19 @@ onMounted(() => {
           </div>
 
           <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
-            <div><span class="font-semibold">Tình trạng:</span> {{ manga.status }}</div>
             <div>
-              <span class="font-semibold">Lượt xem:</span> {{ manga.view?.toLocaleString() || 0 }}
+              <span class="font-bold text-blue-600">Tình trạng:</span>
+              <span class="text-blue-600 font-semibold ml-[10px]">{{ manga.status }}</span>
+            </div>
+            <div>
+              <span class="font-bold text-blue-600">Lượt xem:</span>
+              <span class="text-blue-600 font-semibold ml-[10px]">{{
+                manga.view?.toLocaleString() || 0
+              }}</span>
             </div>
           </div>
 
-          <h2 class="font-bold text-lg mb-2">Nội dung tóm tắt</h2>
+          <h2 class="text-blue-600 font-bold text-lg mb-2">Nội dung tóm tắt</h2>
           <div
             class="text-gray-600 leading-relaxed text-sm overflow-y-auto max-h-40 p-3 bg-gray-50 rounded-lg"
             v-html="manga.content"
@@ -129,6 +127,7 @@ onMounted(() => {
                   path: `/doc-truyen/${manga.slug}/${chapter.chapter_name}`,
                   query: { api: chapter.chapter_api_data },
                 }"
+                @click="handleReadChapter(chapter)"
                 class="block p-3 text-center"
               >
                 <span class="text-gray-200 font-medium text-sm">

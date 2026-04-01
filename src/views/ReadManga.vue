@@ -92,6 +92,14 @@ const changeChapter = async (offset) => {
   }
 }
 
+// Hàm cuộn lên đầu trang
+const scrollToTop = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth',
+  })
+}
+
 onMounted(fetchChapterData)
 
 // Quan trọng: Theo dõi sự thay đổi của URL để tải lại dữ liệu khi đổi chương
@@ -100,7 +108,7 @@ watch(() => route.params.chapter, fetchChapterData)
 
 <template>
   <div class="min-h-screen bg-neutral-900 text-gray-200">
-    <header class="sticky top-0 z-50 bg-black/90 backdrop-blur-md border-b border-gray-800 p-4">
+    <header class="sticky top-0 z-49 bg-black/90 backdrop-blur-md border-b border-gray-800 p-4">
       <div class="container mx-auto flex justify-between items-center">
         <button
           @click="router.push(`/truyen/${route.params.slug}`)"
@@ -114,7 +122,7 @@ watch(() => route.params.chapter, fetchChapterData)
             {{ chapterData?.comic_name || 'Đang tải...' }}
           </h1>
           <p class="text-[10px] text-gray-500 uppercase tracking-widest">
-            Chương {{ route.params.chapter }}
+            Chapter {{ route.params.chapter }}
           </p>
         </div>
 
@@ -180,7 +188,7 @@ watch(() => route.params.chapter, fetchChapterData)
 
     <div class="fixed bottom-6 right-6 flex flex-col gap-3">
       <button
-        @click="window.scrollTo({ top: 0, behavior: 'smooth' })"
+        @click="scrollToTop"
         class="p-3 bg-white/10 backdrop-blur rounded-full hover:bg-white/20"
       >
         ↑
