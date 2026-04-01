@@ -2,7 +2,10 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import RegisterPage from '@/views/RegisterPage.vue'
 import LoginPage from '@/views/LoginPage.vue'
+import ResetPassword from '@/views/ResetPassword.vue'
+import AdminDashboard from '@/views/AdminDashboard.vue'
 import { supabase } from '../lib/supabaseClient'
+import RecentReading from '@/views/RecentReading.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -22,6 +25,11 @@ const router = createRouter({
       name: 'login',
       component: LoginPage,
     },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: ResetPassword,
+    },
     // Thêm vào mảng routes
     {
       path: '/truyen/:slug',
@@ -33,6 +41,17 @@ const router = createRouter({
       path: '/doc-truyen/:slug/:chapter',
       name: 'ReadManga',
       component: () => import('../views/ReadManga.vue'), // Lazy load cho nhẹ app
+    },
+    {
+      path: '/history',
+      name: 'history',
+      component: RecentReading,
+    },
+    {
+      path: '/admin/dashboard',
+      name: 'admin-dashboard',
+      component: AdminDashboard,
+      meta: { requiresAdmin: true },
     },
   ],
 })
