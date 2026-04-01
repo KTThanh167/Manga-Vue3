@@ -3,55 +3,71 @@ import HomeView from '../views/HomeView.vue'
 import RegisterPage from '@/views/RegisterPage.vue'
 import LoginPage from '@/views/LoginPage.vue'
 import ResetPassword from '@/views/ResetPassword.vue'
-import AdminDashboard from '@/views/AdminDashboard.vue'
 import { supabase } from '../lib/supabaseClient'
-import RecentReading from '@/views/RecentReading.vue'
+
+//Import Layout
+import MainLayout from '@/Layouts/MainLayout.vue'
+import AuthLayout from '@/Layouts/AuthLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
+    // --- CỤM 1: CÁC TRANG DÙNG MAIN LAYOUT ---
     {
       path: '/',
-      name: 'home',
-      component: HomeView,
+      component: MainLayout,
+      children: [
+        {
+          path: '', // Khớp với đường dẫn '/'
+          name: 'home',
+          component: HomeView,
+        },
+        {
+          path: 'truyen/:slug',
+          name: 'manga-detail',
+          component: () => import('../views/MangaDetail.vue'),
+          props: true,
+        },
+        {
+          path: 'doc-truyen/:slug/:chapter',
+          name: 'ReadManga',
+          component: () => import('../views/ReadManga.vue'),
+        },
+        {
+          path: 'history',
+          name: 'history',
+          component: () => import('../views/RecentReading.vue'),
+        },
+        {
+          path: 'admin/dashboard',
+          name: 'admin-dashboard',
+          component: () => import('../views/AdminDashboard.vue'),
+          meta: { requiresAdmin: true },
+        },
+      ],
     },
+
+    // --- CỤM 2: CÁC TRANG DÙNG AUTH LAYOUT ---
     {
-      path: '/register',
-      name: 'register',
-      component: RegisterPage,
-    },
-    {
-      path: '/login',
-      name: 'login',
-      component: LoginPage,
-    },
-    {
-      path: '/reset-password',
-      name: 'reset-password',
-      component: ResetPassword,
-    },
-    // Thêm vào mảng routes
-    {
-      path: '/truyen/:slug',
-      component: () => import('../views/MangaDetail.vue'),
-      props: true,
-    },
-    {
-      // Chúng ta cũng nên dự phòng luôn route cho trang Đọc chương
-      path: '/doc-truyen/:slug/:chapter',
-      name: 'ReadManga',
-      component: () => import('../views/ReadManga.vue'), // Lazy load cho nhẹ app
-    },
-    {
-      path: '/history',
-      name: 'history',
-      component: RecentReading,
-    },
-    {
-      path: '/admin/dashboard',
-      name: 'admin-dashboard',
-      component: AdminDashboard,
-      meta: { requiresAdmin: true },
+      path: '/',
+      component: AuthLayout,
+      children: [
+        {
+          path: 'register',
+          name: 'register',
+          component: RegisterPage,
+        },
+        {
+          path: 'login',
+          name: 'login',
+          component: LoginPage,
+        },
+        {
+          path: 'reset-password',
+          name: 'reset-password',
+          component: ResetPassword,
+        },
+      ],
     },
   ],
 })
@@ -63,17 +79,17 @@ router.beforeEach(async (to) => {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      return '/login' // Thay vì next('/login')
+      return '/login'
     }
 
-    const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+    // FIX: Lấy role từ app_metadata (thông tin trong Token) thay vì bảng profiles
+    const userRole = user.app_metadata?.role
 
-    if (data?.role !== 'admin') {
+    if (userRole !== 'admin') {
       alert('Bạn không có quyền truy cập vùng này!')
-      return '/' // Thay vì next('/')
+      return '/'
     }
   }
-  // Nếu không vướng các điều kiện trên, router sẽ tự cho đi tiếp (không cần gọi next)
 })
 
 export default router

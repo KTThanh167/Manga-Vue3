@@ -14,14 +14,12 @@ export const useAuthStore = defineStore('auth', {
   // 3. Actions: Các hàm xử lý logic
   actions: {
     async fetchProfile() {
-      // Lấy user đang đăng nhập từ session
       const {
         data: { user },
       } = await supabase.auth.getUser()
 
       if (user) {
         this.user = user
-        // Lấy thông tin chi tiết (role, username) từ bảng profiles
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -30,6 +28,10 @@ export const useAuthStore = defineStore('auth', {
 
         if (!error) {
           this.userProfile = data
+          // Gộp thêm role từ app_metadata vào để chắc chắn
+          if (!this.userProfile.role) {
+            this.userProfile.role = user.app_metadata?.role
+          }
           return data
         }
       }
