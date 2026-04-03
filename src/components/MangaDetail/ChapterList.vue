@@ -8,7 +8,7 @@ defineEmits(['readChapter'])
 
 <template>
   <div class="mt-10">
-    <h2 class="text-2xl font-bold mb-6 flex items-center text-gray-800">
+    <h2 class="text-2xl font-bold mb-6 flex items-center">
       <span class="w-2 h-8 bg-indigo-600 rounded-full mr-3"></span>
       Danh sách chương
     </h2>
