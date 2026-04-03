@@ -21,7 +21,7 @@ const fetchAndListen = async () => {
   } = await supabase.auth.getUser()
   currentUser.value = user
 
-  // Lấy 50 tin nhắn gần nhất
+  // 1. Lấy tin nhắn cũ giới hạn 50 tin gần nhất
   const { data } = await supabase
     .from('global_messages')
     .select('*')
@@ -31,17 +31,28 @@ const fetchAndListen = async () => {
   messages.value = data || []
   scrollToBottom()
 
+  // 2. Thiết lập lắng nghe Realtime
   const channel = supabase
-    .channel('global-chat')
+    .channel('global-chat-channel')
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'global_messages' },
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'global_messages',
+      },
       (payload) => {
-        messages.value.push(payload.new)
-        scrollToBottom()
+        console.log('NHẬN TIN NHẮN MỚI:', payload.new)
+        // Kiểm tra xem tin nhắn đã có trong mảng chưa để tránh trùng
+        if (!messages.value.find((m) => m.id === payload.new.id)) {
+          messages.value.push(payload.new)
+          scrollToBottom()
+        }
       },
     )
-    .subscribe()
+    .subscribe((status) => {
+      console.log('TRẠNG THÁI KẾT NỐI:', status)
+    })
 
   return channel
 }
