@@ -18,7 +18,7 @@ const router = createRouter({
       component: MainLayout,
       children: [
         {
-          path: '', // Khớp với đường dẫn '/'
+          path: '',
           name: 'home',
           component: HomeView,
         },
