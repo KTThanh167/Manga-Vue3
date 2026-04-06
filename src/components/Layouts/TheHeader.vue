@@ -26,11 +26,13 @@
 
       <div class="flex items-center gap-4">
         <div class="hidden sm:block relative">
-          <input
-            type="text"
-            placeholder="Tìm truyện..."
-            class="w-48 lg:w-64 pl-5 pr-4 py-1.5 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-blue-500 text-sm transition-all dark:bg-gray-800"
-          />
+          <router-link to="/search">
+            <input
+              type="text"
+              placeholder="Tìm truyện..."
+              class="w-48 lg:w-64 pl-5 pr-4 py-1.5 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-blue-500 text-sm transition-all dark:bg-gray-800"
+            />
+          </router-link>
         </div>
 
         <div v-if="user" class="relative group">

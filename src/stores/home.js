@@ -121,7 +121,68 @@ export const useHomeStore = defineStore('home', () => {
 
     return channel
   }
+  //LOGIC TÌM KIẾM TRUYỆN THEO THỂ LOẠI / THEO TÊN
+  const searchResults = ref([])
+  const isSearching = ref(false)
 
+  //Lọc theo tên truyện
+  const searchMangas = async (keyword = '', page = 1) => {
+    isSearching.value = true
+    try {
+      // API tìm kiếm của Otruyen: danh-sach/tim-kiem?keyword=abc
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=${page}`,
+      )
+      if (res.data.status === 'success') {
+        searchResults.value = res.data.data.items
+        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+      }
+    } catch (err) {
+      console.error('Lỗi tìm kiếm:', err)
+    } finally {
+      isSearching.value = false
+    }
+  }
+
+  // Action lọc theo thể loại
+  const filterByCategory = async (categorySlug, page = 1) => {
+    isSearching.value = true
+    try {
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
+      )
+      if (res.data.status === 'success') {
+        searchResults.value = res.data.data.items
+        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+      }
+    } catch (err) {
+      console.error('Lỗi lọc thể loại:', err)
+    } finally {
+      isSearching.value = false
+    }
+  }
+
+  //Gợi ý nhanh khi người dùng tìm tên truyện
+  // Trong useHomeStore
+  const searchSuggestions = ref([])
+
+  const getSuggestions = async (keyword) => {
+    if (!keyword.trim()) {
+      searchSuggestions.value = []
+      return
+    }
+    try {
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=1`,
+      )
+      if (res.data.status === 'success') {
+        // Chỉ lấy 5-8 kết quả đầu tiên để làm gợi ý nhanh
+        searchSuggestions.value = res.data.data.items.slice(0, 8)
+      }
+    } catch (err) {
+      console.error('Lỗi gợi ý:', err)
+    }
+  }
   return {
     // State
     mangas,
@@ -134,8 +195,14 @@ export const useHomeStore = defineStore('home', () => {
     currentPage,
     totalItems,
     IMAGE_RESOURCES,
+    searchResults,
+    isSearching,
+    searchSuggestions,
     // Actions
     fetchHomeData,
     fetchAndListen,
+    searchMangas,
+    filterByCategory,
+    getSuggestions,
   }
 })
