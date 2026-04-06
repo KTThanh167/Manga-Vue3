@@ -135,6 +135,19 @@ const selectSuggestion = (manga) => {
 
 <template>
   <div class="p-4 md:p-6 max-w-7xl mx-auto">
+    <div class="mb-4 flex">
+      <router-link
+        to="/"
+        class="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition-colors group"
+      >
+        <div
+          class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-indigo-100 transition-all"
+        >
+          <font-awesome-icon icon="fa-solid fa-house" />
+        </div>
+        <span class="text-sm font-bold">Quay về trang chủ</span>
+      </router-link>
+    </div>
     <div
       class="bg-indigo-600 rounded-2xl md:rounded-3xl p-5 md:p-8 mb-6 md:mb-8 text-center shadow-xl shadow-indigo-100 relative overflow-hidden"
     >
