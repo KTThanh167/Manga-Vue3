@@ -3,8 +3,9 @@ import { computed } from 'vue'
 import { useHomeStore } from '../../stores/home'
 
 const homeStore = useHomeStore()
+const emit = defineEmits(['change-page'])
 
-// Giả định mỗi trang có 20 item (theo API Otruyen)
+// Giả định mỗi trang có 24 item (theo API Otruyen)
 const itemsPerPage = 24
 const totalPages = computed(() => {
   return Math.ceil(homeStore.totalItems / itemsPerPage) || 1
@@ -23,13 +24,13 @@ const visiblePages = computed(() => {
 
 const goToPage = (page) => {
   if (page < 1 || page > totalPages.value || homeStore.loading) return
-  homeStore.fetchHomeData(page)
+  emit('change-page', page) // Gửi số trang ra cho component cha xử lý
 }
 </script>
 
 <template>
   <div
-    v-if="!homeStore.loading && !homeStore.error"
+    v-if="!homeStore.isSearching && homeStore.totalItems > itemsPerPage"
     class="mt-12 flex flex-wrap justify-center items-center gap-2 pb-10"
   >
     <button

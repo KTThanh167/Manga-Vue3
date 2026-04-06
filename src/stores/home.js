@@ -128,6 +128,7 @@ export const useHomeStore = defineStore('home', () => {
   //Lọc theo tên truyện
   const searchMangas = async (keyword = '', page = 1) => {
     isSearching.value = true
+    currentPage.value = page // Lưu lại trang hiện tại vào store
     try {
       // API tìm kiếm của Otruyen: danh-sach/tim-kiem?keyword=abc
       const res = await axios.get(
@@ -147,12 +148,15 @@ export const useHomeStore = defineStore('home', () => {
   // Action lọc theo thể loại
   const filterByCategory = async (categorySlug, page = 1) => {
     isSearching.value = true
+    currentPage.value = page // Lưu lại trang hiện tại vào store
+
     try {
       const res = await axios.get(
         `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
       )
       if (res.data.status === 'success') {
         searchResults.value = res.data.data.items
+        // Cập nhật totalItems để Component Pagination biết có bao nhiêu trang
         totalItems.value = res.data.data.params?.pagination?.totalItems || 0
       }
     } catch (err) {
