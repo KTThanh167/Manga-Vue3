@@ -8,7 +8,8 @@ import { library } from '@fortawesome/fontawesome-svg-core'
 import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
 
 import { faSortDown } from '@fortawesome/free-solid-svg-icons'
-library.add(faSortDown)
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+library.add(faSortDown, faMagnifyingGlass)
 
 const app = createApp(App)
 const pinia = createPinia()

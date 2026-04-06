@@ -1,102 +1,97 @@
 <template>
   <header
-    class="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100 dark:bg-slate-900/80 dark:border-gray-800 transition-colors duration-300"
+    class="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 dark:bg-slate-900/90 dark:border-gray-800 transition-all duration-300"
   >
-    <div class="container mx-auto px-4 h-16 flex items-center justify-between">
-      <div class="flex items-center gap-8">
-        <router-link to="/" class="flex items-center gap-2 group">
-          <div
-            class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center group-hover:rotate-12 transition-transform"
-          >
-            <span class="text-white font-bold">M</span>
-          </div>
-          <span
-            class="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent"
-          >
-            MangaReal
-          </span>
-        </router-link>
+    <div class="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <router-link to="/" class="flex items-center gap-2 shrink-0 group">
+        <div
+          class="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center group-hover:rotate-6 transition-transform shadow-lg shadow-blue-200 dark:shadow-none"
+        >
+          <span class="text-white font-bold text-xl">M</span>
+        </div>
+        <span
+          class="hidden xs:block text-xl font-black bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent tracking-tight"
+        >
+          MangaReal
+        </span>
+      </router-link>
 
-        <nav class="hidden md:flex items-center gap-6">
-          <router-link to="/browse" class="nav-link">Khám phá</router-link>
-          <router-link to="/latest" class="nav-link">Mới cập nhật</router-link>
-          <router-link to="/trending" class="nav-link">Thịnh hành</router-link>
-        </nav>
-      </div>
-
-      <div class="flex items-center gap-4">
-        <div class="hidden sm:block relative">
-          <router-link to="/search">
-            <input
-              type="text"
-              placeholder="Tìm truyện..."
-              class="w-48 lg:w-64 pl-5 pr-4 py-1.5 rounded-full bg-gray-100 border-none focus:ring-2 focus:ring-blue-500 text-sm transition-all dark:bg-gray-800"
-            />
+      <div class="flex items-center gap-2 sm:gap-4">
+        <div class="relative flex items-center">
+          <router-link
+            to="/search"
+            class="sm:hidden w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 hover:text-blue-600 transition-all"
+          >
+            <font-awesome-icon icon="fa-solid fa-magnifying-glass" />
           </router-link>
+
+          <div class="hidden sm:block">
+            <router-link to="/search" class="block group">
+              <div class="relative">
+                <input
+                  type="text"
+                  placeholder="Tìm truyện..."
+                  readonly
+                  class="w-40 lg:w-64 pl-10 pr-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 border border-transparent focus:ring-2 focus:ring-blue-500/50 text-sm transition-all cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 outline-none"
+                />
+              </div>
+            </router-link>
+          </div>
         </div>
 
-        <div v-if="user" class="relative group">
+        <div v-if="user" class="relative">
           <button
             @click.stop="isDropdownOpen = !isDropdownOpen"
-            class="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all focus:outline-none"
+            class="flex items-center gap-2 p-1 pr-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-all outline-none"
           >
             <div
-              class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm"
+              class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-md"
             >
               {{ userInitial }}
             </div>
-            <span class="hidden sm:block text-sm font-medium text-gray-700 dark:text-gray-200">
+            <span class="hidden md:block text-sm font-semibold text-gray-700 dark:text-gray-200">
               {{ userName }}
             </span>
-            <span
-              class="material-icons-outlined text-gray-400 text-sm transition-transform"
-              :class="{ 'rotate-180': isDropdownOpen }"
-              ><font-awesome-icon icon="sort-down"
-            /></span>
+            <font-awesome-icon
+              icon="sort-down"
+              class="text-gray-400 text-xs mt-[-4px]"
+              :class="{ 'rotate-180 transition-transform': isDropdownOpen }"
+            />
           </button>
 
-          <transition
-            enter-active-class="transition duration-200 ease-out"
-            enter-from-class="transform scale-95 opacity-0 -translate-y-2"
-            enter-to-class="transform scale-100 opacity-100 translate-y-0"
-            leave-active-class="transition duration-150 ease-in"
-            leave-from-class="transform scale-100 opacity-100 translate-y-0"
-            leave-to-class="transform scale-95 opacity-0 -translate-y-2"
-          >
+          <transition name="dropdown">
             <div
               v-if="isDropdownOpen"
               v-click-outside="closeDropdown"
-              class="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl ring-1 ring-black/5 py-2 z-50 overflow-hidden divide-y divide-gray-100 dark:divide-gray-700"
+              class="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl ring-1 ring-black/5 py-2 z-50 overflow-hidden border border-gray-100 dark:border-gray-700"
             >
-              <div class="px-4 py-2 mb-1">
-                <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">
+              <div class="px-4 py-3 border-b border-gray-50 dark:border-gray-700 mb-1">
+                <p class="text-[10px] uppercase font-black text-gray-400 tracking-widest">
                   Tài khoản
                 </p>
-                <p class="text-xs text-gray-500 truncate">{{ user.email }}</p>
+                <p class="text-xs font-medium text-gray-600 dark:text-gray-400 truncate">
+                  {{ user.email }}
+                </p>
               </div>
 
               <div class="py-1">
-                <router-link to="/profile" class="dropdown-item">
-                  <span class="material-icons-outlined text-lg">person</span>
-                  Hồ sơ cá nhân
+                <router-link to="/profile" class="dropdown-item" @click="closeDropdown">
+                  <span class="material-icons-outlined text-lg">person</span> Hồ sơ cá nhân
                 </router-link>
-                <router-link to="/library" class="dropdown-item">
-                  <span class="material-icons-outlined text-lg">bookmarks</span>
-                  Tủ sách của tôi
+                <router-link to="/library" class="dropdown-item" @click="closeDropdown">
+                  <span class="material-icons-outlined text-lg">bookmarks</span> Tủ sách của tôi
                 </router-link>
-                <router-link to="/history" class="dropdown-item">
-                  <span class="material-icons-outlined text-lg">history</span>
-                  Lịch sử đọc
+                <router-link to="/history" class="dropdown-item" @click="closeDropdown">
+                  <span class="material-icons-outlined text-lg">history</span> Lịch sử đọc
                 </router-link>
               </div>
 
-              <div class="py-1">
+              <div class="py-1 mt-1 border-t border-gray-50 dark:border-gray-700">
                 <button
                   @click="handleLogout"
-                  class="dropdown-item w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  class="dropdown-item w-full text-left text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 font-bold"
                 >
-                  <span class="material-icons-outlined text-lg">logout</span>
-                  Đăng xuất
+                  <span class="material-icons-outlined text-lg">logout</span> Đăng xuất
                 </button>
               </div>
             </div>
@@ -106,42 +101,77 @@
         <div v-else class="flex items-center gap-2">
           <router-link
             to="/login"
-            class="px-4 py-2 text-sm font-medium text-gray-600 hover:text-blue-600 transition"
-            >Đăng nhập</router-link
+            class="px-4 py-2 text-sm font-bold text-gray-600 hover:text-blue-600 transition dark:text-gray-300"
           >
+            Đăng nhập
+          </router-link>
           <router-link
             to="/register"
-            class="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md shadow-blue-200 transition"
-            >Đăng ký</router-link
+            class="px-5 py-2 text-sm font-bold bg-blue-600 text-white rounded-full hover:bg-blue-700 shadow-lg shadow-blue-200 dark:shadow-none transition"
           >
+            Đăng ký
+          </router-link>
         </div>
       </div>
     </div>
-    <div class="w-full bg-blue-600 dark:bg-blue-700 py-1.5 overflow-hidden whitespace-nowrap group">
-      <div
-        class="inline-block animate-marquee group-hover:[animation-play-state:paused] cursor-pointer"
-      >
-        <span class="text-xs font-medium text-white px-4">
-          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
-          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
-        </span>
-        <span class="text-xs font-medium text-white px-4">
-          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
-          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
-        </span>
-        <span class="text-xs font-medium text-white px-4">
-          📢 Dữ liệu truyện, bản quyền được mình mượn dùng từ
-          <span class="font-bold underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
+
+    <div class="w-full bg-blue-600 dark:bg-blue-700 py-1.5 overflow-hidden whitespace-nowrap">
+      <div class="inline-block animate-marquee whitespace-nowrap">
+        <span
+          v-for="i in 3"
+          :key="i"
+          class="text-[11px] font-bold text-white px-8 uppercase tracking-wider"
+        >
+          📢 Nguồn dữ liệu: <span class="underline">otruyen.cc</span> — Chúc bạn đọc truyện vui vẻ!
         </span>
       </div>
     </div>
   </header>
 </template>
 
+<style scoped>
+/* Fix lỗi marquee nếu chưa có keyframes */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.33%);
+  }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 20s linear infinite;
+}
+
+.dropdown-item {
+  @apply flex items-center gap-3 px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors;
+}
+
+/* Transition cho Dropdown */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.2s ease-out;
+}
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+/* Ẩn bớt logo chữ trên mobile cực nhỏ */
+@media (max-width: 400px) {
+  .xs\:block {
+    display: none;
+  }
+}
+</style>
+
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '@/lib/supabaseClient' // Đảm bảo đường dẫn này đúng với project của bạn
+import { supabase } from '@/lib/supabaseClient'
 
 const router = useRouter()
 const user = ref(null)
@@ -204,18 +234,3 @@ const vClickOutside = {
   },
 }
 </script>
-
-<style scoped>
-.nav-link {
-  @apply text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors dark:text-gray-300 dark:hover:text-blue-400;
-}
-
-.dropdown-item {
-  @apply flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-gray-700/50 transition-colors;
-}
-
-/* Tùy chỉnh router-link-active cho nav-link */
-.router-link-active:not(.group) {
-  @apply text-blue-600 font-bold;
-}
-</style>
