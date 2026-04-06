@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabaseClient'
 //Import Layout
 import MainLayout from '@/Layouts/MainLayout.vue'
 import AuthLayout from '@/Layouts/AuthLayout.vue'
+import EmptyLayout from '@/Layouts/EmptyLayout.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -67,6 +68,13 @@ const router = createRouter({
           name: 'reset-password',
           component: ResetPassword,
         },
+      ],
+    },
+    {
+      path: '/',
+      component: EmptyLayout,
+      children: [
+        { path: 'search', name: 'search', component: () => import('../views/SearchView.vue') },
       ],
     },
   ],
