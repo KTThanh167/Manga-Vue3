@@ -78,7 +78,7 @@
                 <router-link to="/profile" class="dropdown-item" @click="closeDropdown">
                   <span class="material-icons-outlined text-lg">person</span> Hồ sơ cá nhân
                 </router-link>
-                <router-link to="/library" class="dropdown-item" @click="closeDropdown">
+                <router-link to="/bookmark" class="dropdown-item" @click="closeDropdown">
                   <span class="material-icons-outlined text-lg">bookmarks</span> Tủ sách của tôi
                 </router-link>
                 <router-link to="/history" class="dropdown-item" @click="closeDropdown">

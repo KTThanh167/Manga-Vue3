@@ -51,7 +51,7 @@ const handleReadChapter = (chapter) => {
   )
 }
 
-onMounted(fetchMangaDetail)
+onMounted(fetchMangaDetail, mangaStore.checkFollowStatus(route.params.slug))
 </script>
 
 <template>
