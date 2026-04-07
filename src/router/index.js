@@ -45,6 +45,11 @@ const router = createRouter({
           component: () => import('../views/AdminDashboard.vue'),
           meta: { requiresAdmin: true },
         },
+        {
+          path: 'bookmark',
+          name: 'bookmark',
+          component: () => import('../views/BookmarkView.vue'),
+        },
       ],
     },
 

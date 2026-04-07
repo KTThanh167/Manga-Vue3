@@ -55,6 +55,7 @@ export const useMangaStore = defineStore('manga', {
       { name: 'Webtoon', slug: 'webtoon' },
       { name: 'Xuyên Không', slug: 'xuyen-khong' },
     ],
+    followedMangas: JSON.parse(localStorage.getItem('manga_followed')) || [],
   }),
 
   actions: {
@@ -171,6 +172,33 @@ export const useMangaStore = defineStore('manga', {
       } catch (err) {
         console.error('Lỗi thao tác bookmark:', err)
       }
+    },
+    checkFollowStatus(slug) {
+      this.isFollowed = this.followedMangas.some((m) => m.slug === slug)
+    },
+    toggleFollow(manga) {
+      const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
+
+      if (index > -1) {
+        // Nếu đã có -> Xóa khỏi danh sách
+        this.followedMangas.splice(index, 1)
+        this.isFollowed = false
+      } else {
+        // Nếu chưa có -> Thêm vào (chỉ lưu những thông tin cần thiết để nhẹ máy)
+        this.followedMangas.unshift({
+          _id: manga._id,
+          name: manga.name,
+          slug: manga.slug,
+          thumb_url: manga.thumb_url,
+          last_chapter: manga.last_chapter || 'Đang cập nhật',
+          // Lưu thêm category đầu tiên để hiển thị ở card nếu muốn
+          category: manga.category ? [manga.category[0]] : [],
+        })
+        this.isFollowed = true
+      }
+
+      // QUAN TRỌNG: Lưu mảng này vào LocalStorage để F5 không mất
+      localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
     },
   },
 })
