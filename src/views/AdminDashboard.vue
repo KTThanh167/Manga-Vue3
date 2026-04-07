@@ -60,6 +60,7 @@
 import { ref, onMounted } from 'vue'
 import { supabase } from '../lib/supabaseClient'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 // Import components mới
 import AdminHeader from '../components/Admin/AdminHeader.vue'
@@ -78,7 +79,34 @@ const checkAdminAccess = async () => {
   /* logic check admin của bạn */
 }
 const fetchStats = async () => {
-  /* logic fetch stats của bạn */
+  try {
+    // Chạy song song: 2 câu lệnh từ Supabase và 1 câu lệnh từ API Otruyen
+    const [usersCount, readsCount, otruyenRes] = await Promise.all([
+      // 1. Lấy tổng User từ Supabase
+      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+
+      // 2. Lấy tổng lượt đọc từ Supabase
+      supabase.from('reading_history').select('*', { count: 'exact', head: true }),
+
+      // 3. Lấy dữ liệu danh sách mới nhất từ Otruyen để lấy con số tổng (totalItems)
+      axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1'),
+    ])
+
+    // Trích xuất con số tổng từ kết quả API
+    // Cấu trúc API Otruyen: res.data.data.params.pagination.totalItems
+    const totalApiMangas = otruyenRes.data?.data?.params?.pagination?.totalItems || 0
+
+    stats.value = {
+      totalUsers: usersCount.count || 0,
+      totalMangas: totalApiMangas || 0,
+      totalReads: readsCount.count || 0,
+      totalRatings: 0,
+    }
+
+    console.log('Cập nhật thống kê thành công:', stats.value)
+  } catch (err) {
+    console.error('Lỗi khi lấy dữ liệu thống kê:', err)
+  }
 }
 const handleLogout = async () => {
   await supabase.auth.signOut()
@@ -86,8 +114,7 @@ const handleLogout = async () => {
 }
 
 onMounted(async () => {
-  if (await checkAdminAccess()) {
-    await fetchStats()
-  }
+  await checkAdminAccess()
+  await fetchStats()
 })
 </script>
