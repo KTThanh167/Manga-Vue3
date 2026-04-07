@@ -46,33 +46,33 @@ export const useHomeStore = defineStore('home', () => {
   }
 
   // --- FETCH DỮ LIỆU TỔNG HỢP (REFACTORED ĐỂ HỖ TRỢ PAGE) ---
+  // --- FETCH DỮ LIỆU TỔNG HỢP (PHIÊN BẢN ĐẦY ĐỦ) ---
   const fetchHomeData = async (page = 1) => {
     loading.value = true
-    currentPage.value = page // Cập nhật trang hiện tại
+    // Cập nhật trạng thái trang hiện tại vào store ngay lập tức
+    currentPage.value = page
 
     try {
-      // Bước 1: Lấy truyện mới từ API (Đã thêm query param page)
+      // Bước 1: Lấy truyện mới từ API với tham số page động
       const res = await axios.get(`https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${page}`)
 
       if (res.data.status === 'success') {
         mangas.value = res.data.data.items
-        // Lưu tổng số truyện nếu API có trả về (để làm phân trang chuẩn hơn)
+
+        // Cập nhật tổng số Items để Pagination tính toán đúng số trang
         totalItems.value = res.data.data.params?.pagination?.totalItems || 0
 
-        // Cuộn lên đầu trang mỗi khi chuyển trang
-        if (page > 1) {
-          window.scrollTo({ top: 0, behavior: 'smooth' })
-        }
+        // Cuộn lên đầu trang mượt mà để người dùng biết dữ liệu đã thay đổi
+        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
 
-      // Bước 2 & 3: Kiểm tra User, lấy lịch sử từ Supabase và chạy AI nếu có
+      // Bước 2: Kiểm tra User và chạy AI gợi ý
       const {
         data: { user },
       } = await supabase.auth.getUser()
+      currentUser.value = user
 
-      currentUser.value = user // Cập nhật user hiện tại vào store
-
-      // Chỉ chạy AI gợi ý ở trang 1 để tránh tính toán lại lặp đi lặp lại khi chuyển trang
+      // AI chỉ nên chạy ở trang 1 để tránh lãng phí tài nguyên khi chuyển trang
       if (user && page === 1) {
         const { data: history } = await supabase
           .from('reading_history')
@@ -85,7 +85,7 @@ export const useHomeStore = defineStore('home', () => {
       }
     } catch (err) {
       error.value = 'Hệ thống đang bận, vui lòng thử lại sau!'
-      console.error(err)
+      console.error('Lỗi fetchHomeData:', err)
     } finally {
       loading.value = false
     }
