@@ -3,6 +3,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html, body {
+    font-family: "Be Vietnam Pro", sans-serif;
+  }
+}
+
 .container {
   width: 100%;
   margin: 0 auto;

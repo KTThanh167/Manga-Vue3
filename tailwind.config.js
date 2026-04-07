@@ -3,7 +3,12 @@ export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      //cấu hình animation tại đây
+      // 1. Thêm cấu hình Font chữ tại đây
+      fontFamily: {
+        sans: ['"Be Vietnam Pro"', 'sans-serif'],
+      },
+
+      // 2. Cấu hình animation cũ của bạn (giữ nguyên)
       animation: {
         marquee: 'marquee 25s linear infinite',
       },
