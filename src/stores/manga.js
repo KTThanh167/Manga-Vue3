@@ -59,8 +59,6 @@ export const useMangaStore = defineStore('manga', {
   }),
 
   actions: {
-    // stores/manga.js
-    // stores/manga.js
     async recordReadingHistory(manga, chapter) {
       const {
         data: { user },
