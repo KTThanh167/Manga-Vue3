@@ -50,6 +50,11 @@ const router = createRouter({
           name: 'bookmark',
           component: () => import('../views/BookmarkView.vue'),
         },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: () => import('../views/ProfileView.vue'),
+        },
       ],
     },
 
