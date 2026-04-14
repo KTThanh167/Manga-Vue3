@@ -115,6 +115,7 @@ import { ref } from 'vue'
 import { supabase } from '../lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons-vue'
+import { message } from 'ant-design-vue'
 
 const email = ref('')
 const password = ref('')
@@ -126,44 +127,43 @@ const isLoadingResetPassword = ref(false)
 const router = useRouter()
 
 const handleLogin = async () => {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.value,
-    password: password.value,
-  })
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  console.log('Quyền hiện tại trong Token:', user?.app_metadata?.role)
+  // Hiển thị loading nhẹ
+  const hideLoading = message.loading('Đang xác thực...', 0)
 
-  if (error) {
-    alert('Đăng nhập thất bại: ' + error.message)
-    return
-  }
-
-  // Nếu login thành công, thử lấy profile
   try {
-    const { data: profile, error: profileError } = await supabase
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.value,
+      password: password.value,
+    })
+
+    if (error) {
+      hideLoading() // Tắt loading
+      message.error('Đăng nhập thất bại: Tài khoản hoặc mật khẩu không chính xác!')
+      return
+    }
+
+    // Lấy thông tin profile để chào mừng
+    const { data: profile } = await supabase
       .from('profiles')
       .select('role, username')
       .eq('id', data.user.id)
       .single()
 
-    if (profileError) {
-      console.error('Lỗi RLS Policy:', profileError)
-      // Nếu lỗi Policy, vẫn cho vào trang chủ nhưng dùng thông tin mặc định
-      router.push('/')
-      return
-    }
+    hideLoading() // Tắt loading
 
-    // Điều hướng dựa trên role như cũ
+    // Chào mừng người dùng bằng tên (Username)
+    message.success(`Chào mừng ${profile?.username || 'bạn'} đã quay trở lại!`)
+
+    // Điều hướng dựa trên role
     if (profile?.role === 'admin') {
       router.push('/admin/dashboard')
     } else {
       router.push('/')
     }
   } catch (err) {
-    // Phòng trường hợp crash code
-    console.error('Phát hiện lỗi ngoại lệ khi chuyển trang:', err)
+    hideLoading()
+    console.error('Lỗi ngoại lệ:', err)
+    message.error('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.')
     router.push('/')
   }
 }
@@ -171,14 +171,11 @@ const handleLogin = async () => {
 // --- QUÊN MẬT KHẨU ---
 const handleForgotPassword = async () => {
   if (!forgotEmail.value) {
-    resetMessage.value = 'Lỗi: Vui lòng nhập email của bạn'
+    message.warning('Vui lòng nhập email của bạn!')
     return
   }
 
-  if (isLoadingResetPassword.value) return // Prevent spam click
-
   isLoadingResetPassword.value = true
-  resetMessage.value = ''
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.value, {
@@ -186,19 +183,17 @@ const handleForgotPassword = async () => {
     })
 
     if (error) {
-      resetMessage.value = 'Lỗi: ' + error.message
+      message.error('Lỗi: ' + error.message)
     } else {
-      resetMessage.value = 'Kiểm tra email của bạn để đặt lại mật khẩu!'
-      setTimeout(() => {
-        showForgotModal.value = false
-        forgotEmail.value = ''
-        resetMessage.value = ''
-      }, 3000)
+      message.success('Gửi link reset thành công! Hãy kiểm tra hòm thư của bạn.')
+      showForgotModal.value = false
+      forgotEmail.value = ''
     }
   } catch (err) {
-    resetMessage.value = 'Lỗi: ' + err.message
+    message.error('Lỗi hệ thống: ' + err.message)
   } finally {
     isLoadingResetPassword.value = false
   }
 }
 </script>
+s

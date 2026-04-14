@@ -4,75 +4,79 @@ import axios from 'axios'
 import { supabase } from '../lib/supabaseClient'
 
 export const useHomeStore = defineStore('home', () => {
-  // --- TRẠNG THÁI DỮ LIỆU ---
-  const mangas = ref([])
-  const recommendedList = ref([])
-  const topCategory = ref(null)
-  const loading = ref(true)
-  const error = ref(null)
-  const onlineCount = ref(1)
-  const currentUser = ref(null)
+  // ==========================================
+  // 1. TRẠNG THÁI DỮ LIỆU (STATE)
+  // ==========================================
+  const mangas = ref([]) // Danh sách truyện hiển thị chính
+  const recommendedList = ref([]) // Danh sách truyện gợi ý từ AI
+  const topCategory = ref(null) // Thể loại người dùng yêu thích nhất
+  const loading = ref(true) // Trạng thái loading toàn trang
+  const error = ref(null) // Lưu lỗi nếu API gặp sự cố
+  const onlineCount = ref(1) // Số người đang trực tuyến
+  const currentUser = ref(null) // Thông tin user đang đăng nhập
+  const listTitle = ref('Truyện mới cập nhật') // Tiêu đề động cho các trang danh sách
 
-  // --- TRẠNG THÁI PHÂN TRANG (MỚI THÊM) ---
+  // --- PHÂN TRANG & RESOURCES ---
   const currentPage = ref(1)
-  const totalItems = ref(0) // Tổng số truyện để tính toán nếu cần
-
+  const totalItems = ref(0)
   const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
-  // --- LOGIC AI GỢI Ý  ---
-  const runAIRecommendation = (history, allMangas) => {
-    if (!history?.length) return
+  // --- TRẠNG THÁI TÌM KIẾM & LỌC ---
+  const searchResults = ref([]) // Kết quả tìm kiếm hoặc lọc theo thể loại
+  const isSearching = ref(false) // Loading riêng cho phần search/filter
+  const searchSuggestions = ref([]) // Gợi ý nhanh khi gõ từ khóa
 
-    // 1. Đếm tần suất các thể loại và tìm yêu thích nhất (2. Trọng số cao nhất)
-    const categoryCounts = {}
-    history.forEach((item) => {
-      item.category_list?.forEach((catName) => {
-        categoryCounts[catName] = (categoryCounts[catName] || 0) + 1
-      })
-    })
+  // ==========================================
+  // 2. CÁC HÀM XỬ LÝ CHÍNH (ACTIONS)
+  // ==========================================
 
-    const favorite = Object.keys(categoryCounts).reduce(
-      (a, b) => (categoryCounts[a] > categoryCounts[b] ? a : b),
-      null,
-    )
-
-    if (favorite) {
-      topCategory.value = favorite
-      // 3. Lọc ra 4 truyện cùng thể loại đó từ danh sách mới
-      recommendedList.value = allMangas
-        .filter((m) => m.category?.some((c) => c.name === favorite))
-        .slice(0, 4)
-    }
-  }
-
-  // --- FETCH DỮ LIỆU TỔNG HỢP (REFACTORED ĐỂ HỖ TRỢ PAGE) ---
-  // --- FETCH DỮ LIỆU TỔNG HỢP (PHIÊN BẢN ĐẦY ĐỦ) ---
-  const fetchHomeData = async (page = 1) => {
+  /**
+   * ACTION DÙNG CHUNG: Lấy dữ liệu theo danh mục slug (truyen-moi, truyen-hoan-thanh, ...)
+   * Giúp tái sử dụng cho nhiều trang khác nhau (LatestView, CompletedView)
+   */
+  const fetchListData = async (slug, page = 1) => {
     loading.value = true
-    // Cập nhật trạng thái trang hiện tại vào store ngay lập tức
     currentPage.value = page
 
     try {
-      // Bước 1: Lấy truyện mới từ API với tham số page động
-      const res = await axios.get(`https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${page}`)
+      const res = await axios.get(`https://otruyenapi.com/v1/api/danh-sach/${slug}?page=${page}`)
 
       if (res.data.status === 'success') {
-        mangas.value = res.data.data.items
+        let rawItems = res.data.data.items
 
-        // Cập nhật tổng số Items để Pagination tính toán đúng số trang
+        // Nếu là trang Completed, chúng ta chủ động lọc những bộ có trạng thái 'completed'
+        if (slug === 'truyen-hoan-thanh') {
+          mangas.value = rawItems.filter((m) => m.status === 'completed')
+          listTitle.value = 'Truyện đã hoàn thành'
+        } else {
+          mangas.value = rawItems
+          listTitle.value = 'Truyện mới cập nhật'
+        }
+
         totalItems.value = res.data.data.params?.pagination?.totalItems || 0
-
-        // Cuộn lên đầu trang mượt mà để người dùng biết dữ liệu đã thay đổi
-        window.scrollTo({ top: 0, behavior: 'smooth' })
       }
+    } catch (err) {
+      error.value = 'Không thể kết nối đến máy chủ, vui lòng thử lại!'
+      console.error('Lỗi fetchListData:', err)
+    } finally {
+      loading.value = false
+    }
+  }
 
-      // Bước 2: Kiểm tra User và chạy AI gợi ý
+  /**
+   * TRANG CHỦ: Lấy truyện mới và kết hợp logic AI gợi ý
+   */
+  const fetchHomeData = async (page = 1) => {
+    // Bước 1: Lấy data truyện mới bằng hàm dùng chung
+    await fetchListData('truyen-moi', page)
+
+    // Bước 2: Xử lý AI nếu có user đăng nhập (chỉ chạy ở trang 1 để tối ưu)
+    try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
       currentUser.value = user
 
-      // AI chỉ nên chạy ở trang 1 để tránh lãng phí tài nguyên khi chuyển trang
       if (user && page === 1) {
         const { data: history } = await supabase
           .from('reading_history')
@@ -84,14 +88,103 @@ export const useHomeStore = defineStore('home', () => {
         runAIRecommendation(history, mangas.value)
       }
     } catch (err) {
-      error.value = 'Hệ thống đang bận, vui lòng thử lại sau!'
-      console.error('Lỗi fetchHomeData:', err)
-    } finally {
-      loading.value = false
+      console.error('Lỗi logic AI:', err)
     }
   }
 
-  // --- LOGIC ĐẾM NGƯỜI ONLINE (SỬ DỤNG SUPABASE PRESENCE) ---
+  /**
+   * LOGIC AI: Phân tích lịch sử đọc để tìm thể loại yêu thích nhất
+   */
+  const runAIRecommendation = (history, allMangas) => {
+    if (!history?.length) return
+
+    const categoryCounts = {}
+    history.forEach((item) => {
+      item.category_list?.forEach((catName) => {
+        categoryCounts[catName] = (categoryCounts[catName] || 0) + 1
+      })
+    })
+
+    // Tìm thể loại xuất hiện nhiều nhất
+    const favorite = Object.keys(categoryCounts).reduce(
+      (a, b) => (categoryCounts[a] > categoryCounts[b] ? a : b),
+      null,
+    )
+
+    if (favorite) {
+      topCategory.value = favorite
+      // Lọc ra 4 truyện cùng thể loại để gợi ý
+      recommendedList.value = allMangas
+        .filter((m) => m.category?.some((c) => c.name === favorite))
+        .slice(0, 4)
+    }
+  }
+
+  /**
+   * TÌM KIẾM: Tìm truyện theo từ khóa
+   */
+  const searchMangas = async (keyword = '', page = 1) => {
+    isSearching.value = true
+    currentPage.value = page
+    try {
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=${page}`,
+      )
+      if (res.data.status === 'success') {
+        searchResults.value = res.data.data.items
+        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+      }
+    } catch (err) {
+      console.error('Lỗi tìm kiếm:', err)
+    } finally {
+      isSearching.value = false
+    }
+  }
+
+  /**
+   * GỢI Ý NHANH: Hiển thị list kết quả nhỏ khi đang gõ search
+   */
+  const getSuggestions = async (keyword) => {
+    if (!keyword.trim()) {
+      searchSuggestions.value = []
+      return
+    }
+    try {
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=1`,
+      )
+      if (res.data.status === 'success') {
+        searchSuggestions.value = res.data.data.items.slice(0, 8)
+      }
+    } catch (err) {
+      console.error('Lỗi lấy gợi ý:', err)
+    }
+  }
+
+  /**
+   * LỌC THEO THỂ LOẠI: Lấy danh sách truyện theo category slug
+   */
+  const filterByCategory = async (categorySlug, page = 1) => {
+    isSearching.value = true
+    currentPage.value = page
+    try {
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
+      )
+      if (res.data.status === 'success') {
+        searchResults.value = res.data.data.items
+        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+      }
+    } catch (err) {
+      console.error('Lỗi lọc thể loại:', err)
+    } finally {
+      isSearching.value = false
+    }
+  }
+
+  /**
+   * ĐẾM NGƯỜI ONLINE: Sử dụng Supabase Presence để theo dõi thời gian thực
+   */
   const fetchAndListen = async () => {
     const {
       data: { user },
@@ -121,72 +214,10 @@ export const useHomeStore = defineStore('home', () => {
 
     return channel
   }
-  //LOGIC TÌM KIẾM TRUYỆN THEO THỂ LOẠI / THEO TÊN
-  const searchResults = ref([])
-  const isSearching = ref(false)
 
-  //Lọc theo tên truyện
-  const searchMangas = async (keyword = '', page = 1) => {
-    isSearching.value = true
-    currentPage.value = page // Lưu lại trang hiện tại vào store
-    try {
-      // API tìm kiếm của Otruyen: danh-sach/tim-kiem?keyword=abc
-      const res = await axios.get(
-        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=${page}`,
-      )
-      if (res.data.status === 'success') {
-        searchResults.value = res.data.data.items
-        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
-      }
-    } catch (err) {
-      console.error('Lỗi tìm kiếm:', err)
-    } finally {
-      isSearching.value = false
-    }
-  }
-
-  // Action lọc theo thể loại
-  const filterByCategory = async (categorySlug, page = 1) => {
-    isSearching.value = true
-    currentPage.value = page // Lưu lại trang hiện tại vào store
-
-    try {
-      const res = await axios.get(
-        `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
-      )
-      if (res.data.status === 'success') {
-        searchResults.value = res.data.data.items
-        // Cập nhật totalItems để Component Pagination biết có bao nhiêu trang
-        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
-      }
-    } catch (err) {
-      console.error('Lỗi lọc thể loại:', err)
-    } finally {
-      isSearching.value = false
-    }
-  }
-
-  //Gợi ý nhanh khi người dùng tìm tên truyện
-  // Trong useHomeStore
-  const searchSuggestions = ref([])
-
-  const getSuggestions = async (keyword) => {
-    if (!keyword.trim()) {
-      searchSuggestions.value = []
-      return
-    }
-    try {
-      const res = await axios.get(
-        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=1`,
-      )
-      if (res.data.status === 'success') {
-        // Chỉ lấy 5-8 kết quả đầu tiên để làm gợi ý nhanh
-        searchSuggestions.value = res.data.data.items.slice(0, 8)
-      }
-    } catch (err) {
-      console.error('Lỗi gợi ý:', err)
-    }
-  }
+  // ==========================================
+  // 3. XUẤT DỮ LIỆU (EXPORTS)
+  // ==========================================
   return {
     // State
     mangas,
@@ -199,11 +230,13 @@ export const useHomeStore = defineStore('home', () => {
     currentPage,
     totalItems,
     IMAGE_RESOURCES,
+    listTitle,
     searchResults,
     isSearching,
     searchSuggestions,
     // Actions
     fetchHomeData,
+    fetchListData,
     fetchAndListen,
     searchMangas,
     filterByCategory,
