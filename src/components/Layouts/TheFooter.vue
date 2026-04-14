@@ -26,7 +26,7 @@
         <div>
           <h3 class="footer-heading">Khám phá</h3>
           <ul class="space-y-3">
-            <li><router-link to="/browse" class="footer-link">Tất cả truyện</router-link></li>
+            <li><router-link to="/" class="footer-link">Tất cả truyện</router-link></li>
             <li><router-link to="/latest" class="footer-link">Mới cập nhật</router-link></li>
             <li><router-link to="/trending" class="footer-link">Truyện hot nhất</router-link></li>
             <li><router-link to="/completed" class="footer-link">Đã hoàn thành</router-link></li>

@@ -55,6 +55,11 @@ const router = createRouter({
           name: 'profile',
           component: () => import('../views/ProfileView.vue'),
         },
+        {
+          path: 'completed',
+          name: 'completed',
+          component: () => import('../views/CompletedView.vue'),
+        },
       ],
     },
 
