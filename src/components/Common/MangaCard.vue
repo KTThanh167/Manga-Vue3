@@ -13,27 +13,21 @@ const props = defineProps({
 const homeStore = useHomeStore()
 const router = useRouter()
 
-// Hàm "đào" số chương từ dữ liệu API
-const latestChapterNumber = computed(() => {
-  // Cách 1: Thử lấy từ last_chapter (ví dụ: "Chương 50")
-  let source = props.manga.last_chapter
-
-  // Cách 2: Nếu không có, thử lấy từ chaptersLatest (API Otruyen hay có cái này)
-  if (!source && props.manga.chaptersLatest?.length > 0) {
-    source = props.manga.chaptersLatest[0].filename
-  }
-
-  if (!source) return 0
-
-  // Tách số từ chuỗi (ví dụ "Chương 123" -> 123)
-  const match = String(source).match(/\d+/)
-  return match ? parseInt(match[0]) : 0
+const latestChapters = computed(() => {
+  // slice(0, 3) sẽ lấy từ phần tử index 0 đến 2 (tổng cộng 3)
+  const list = props.manga.chaptersLatest || []
+  return list.slice(0, 3)
 })
 
-const goToChapter = (chapterNumber) => {
-  if (chapterNumber < 1) return
-  // Hãy đảm bảo route này khớp với file router của bạn (ví dụ: /truyen/abc/chuong-20)
-  router.push(`/truyen/${props.manga.slug}/chuong-${chapterNumber}`)
+const goToChapter = (chap) => {
+  if (!chap) return
+
+  const chapterApiUrl = `https://sv1.otruyencdn.com/v1/api/chapter/${chap.chapter_api_data.split('/').pop()}`
+
+  router.push({
+    path: `/doc-truyen/${props.manga.slug}/${chap.chapter_name}`,
+    query: { api: chapterApiUrl },
+  })
 }
 </script>
 
@@ -58,28 +52,31 @@ const goToChapter = (chapterNumber) => {
       <hr class="border-neutral-800 mb-2" />
 
       <div class="flex-1 flex flex-col space-y-1">
-        <template v-if="latestChapterNumber > 0">
+        <template v-if="latestChapters.length > 0">
           <div
-            v-for="n in [0, 1, 2]"
-            :key="n"
-            v-show="latestChapterNumber - n > 0"
-            @click.stop="goToChapter(latestChapterNumber - n)"
+            v-for="(chap, index) in latestChapters"
+            :key="index"
+            @click.stop="goToChapter(chap)"
             class="flex justify-between items-center p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors"
           >
-            <span class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium">
-              Chương {{ latestChapterNumber - n }}
-            </span>
+            <div class="flex items-center gap-2 overflow-hidden">
+              <span
+                class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium truncate"
+              >
+                Chương {{ chap.chapter_name }}
+              </span>
+            </div>
+
             <span
-              v-if="n === 0"
-              class="text-[8px] bg-white text-black px-1 rounded font-bold uppercase"
-              >Mới</span
+              v-if="index === 0"
+              class="text-[8px] bg-white text-black px-1 rounded font-bold uppercase shrink-0"
             >
+              Mới
+            </span>
           </div>
         </template>
 
         <p v-else class="text-[11px] text-gray-500 italic py-1 px-1.5">Đang cập nhật...</p>
-
-        <div class="flex-1"></div>
       </div>
     </div>
   </div>

@@ -22,12 +22,13 @@ watch(
     // Cuộn lên đầu trang mượt mà
     window.scrollTo({
       top: 0,
-      behavior: 'smooth', // Tạo hiệu ứng trượt nhẹ nhàng
+      behavior: 'smooth',
     })
+
+    // GỌI DATA NGAY TẠI ĐÂY
+    await loadData()
   },
-  () => {
-    loadData()
-  },
+  { immediate: true }, // Đảm bảo watch chạy ngay khi component mounted để load dữ liệu ban đầu
 )
 
 // 3. Khi F5 hoặc lần đầu vào trang

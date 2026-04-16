@@ -14,7 +14,7 @@ const route = useRoute()
  */
 const loadCompleted = async () => {
   const page = parseInt(route.query.page) || 1
-  await homeStore.fetchListData('truyen-hoan-thanh', page)
+  await homeStore.fetchListData('hoan-thanh', page)
 }
 
 /**
