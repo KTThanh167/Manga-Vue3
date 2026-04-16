@@ -69,13 +69,14 @@ const toggleReaction = async (messageId, emoji) => {
 
 // --- LOGIC REALTIME & API ---
 const fetchAndListen = async () => {
-  // Lấy thông tin user hiện tại
+  // 1. Lấy thông tin user hiện tại
   const {
     data: { user },
   } = await supabase.auth.getUser()
   currentUser.value = user
 
-  // 1. Lấy 50 tin nhắn gần nhất
+  // --- PHẦN BỊ THIẾU ĐÂY RỒI ---
+  // 2. Lấy 50 tin nhắn cũ từ Database để hiển thị khi load trang
   const { data: msgData } = await supabase
     .from('global_messages')
     .select('*')
@@ -84,7 +85,7 @@ const fetchAndListen = async () => {
 
   messages.value = msgData || []
 
-  // 2. Lấy toàn bộ Reactions cho các tin nhắn trên
+  // 3. Lấy toàn bộ Reactions cho các tin nhắn trên
   if (messages.value.length > 0) {
     const messageIds = messages.value.map((m) => m.id)
     const { data: reactData } = await supabase
@@ -93,17 +94,19 @@ const fetchAndListen = async () => {
       .in('message_id', messageIds)
     reactions.value = reactData || []
   }
+  // -----------------------------
 
   await scrollToBottom()
 
-  // 3. Thiết lập lắng nghe ĐA KÊNH (Tin nhắn & Cảm xúc)
+  // 4. Bắt đầu thiết lập lắng nghe Realtime (Phần này bạn đã viết đúng)
   const channel = supabase
     .channel('global-chat-room')
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'global_messages' },
       (payload) => {
-        if (!messages.value.find((m) => m.id === payload.new.id)) {
+        const exists = messages.value.some((m) => m.id === payload.new.id)
+        if (!exists) {
           messages.value.push(payload.new)
           scrollToBottom()
         }
@@ -114,14 +117,19 @@ const fetchAndListen = async () => {
       { event: '*', schema: 'public', table: 'message_reactions' },
       (payload) => {
         if (payload.eventType === 'INSERT') {
-          reactions.value.push(payload.new)
+          if (!reactions.value.some((r) => r.id === payload.new.id)) {
+            reactions.value.push(payload.new)
+          }
         } else if (payload.eventType === 'DELETE') {
-          // Lưu ý: payload.old chứa dữ liệu bị xóa
           reactions.value = reactions.value.filter((r) => r.id !== payload.old.id)
         }
       },
     )
-    .subscribe()
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Đã kết nối Realtime thành công!')
+      }
+    })
 
   return channel
 }
@@ -166,12 +174,26 @@ onUnmounted(() => {
 
     <div
       ref="chatContainer"
-      class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-gray-50/50 dark:bg-transparent"
+      class="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-gray-50/50 dark:bg-transparent"
     >
-      <div v-for="msg in messages" :key="msg.id" class="flex flex-col group relative">
-        <div class="flex items-baseline gap-2 mb-1">
-          <span class="font-bold text-xs text-indigo-500">{{ msg.user_name }}</span>
-          <span class="text-[10px] text-gray-400">
+      <div
+        v-for="msg in messages"
+        :key="msg.id"
+        :class="[
+          'flex flex-col group relative',
+          msg.user_id === currentUser?.id ? 'items-end' : 'items-start',
+        ]"
+      >
+        <div
+          :class="[
+            'flex items-baseline gap-2 mb-1 px-1',
+            msg.user_id === currentUser?.id ? 'flex-row-reverse' : '',
+          ]"
+        >
+          <span class="font-bold text-[11px] text-indigo-500">
+            {{ msg.user_id === currentUser?.id ? 'Bạn' : msg.user_name }}
+          </span>
+          <span class="text-[9px] text-gray-400">
             {{
               new Date(msg.created_at).toLocaleTimeString([], {
                 hour: '2-digit',
@@ -181,16 +203,29 @@ onUnmounted(() => {
           </span>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div
+          :class="[
+            'flex items-center gap-2 max-w-[85%]',
+            msg.user_id === currentUser?.id ? 'flex-row-reverse' : '',
+          ]"
+        >
           <p
-            class="text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-neutral-700 p-2.5 rounded-lg rounded-tl-none shadow-sm border border-gray-100 dark:border-neutral-600 inline-block self-start max-w-[85%]"
+            :class="[
+              'text-sm p-3 rounded-2xl shadow-sm border transition-colors',
+              msg.user_id === currentUser?.id
+                ? 'bg-indigo-600 text-white border-indigo-500 rounded-tr-none'
+                : 'bg-white dark:bg-neutral-700 text-gray-700 dark:text-gray-300 border-gray-100 dark:border-neutral-600 rounded-tl-none',
+            ]"
           >
             {{ msg.content }}
           </p>
 
           <div
             v-if="currentUser"
-            class="opacity-0 group-hover:opacity-100 transition-all flex bg-white dark:bg-neutral-800 border dark:border-neutral-600 shadow-md rounded-full px-2 py-1 gap-1.5 translate-x-1"
+            :class="[
+              'opacity-0 group-hover:opacity-100 transition-all flex bg-white dark:bg-neutral-800 border dark:border-neutral-600 shadow-md rounded-full px-2 py-1 gap-1',
+              msg.user_id === currentUser?.id ? 'flex-row' : 'flex-row',
+            ]"
           >
             <button
               v-for="e in ['❤️', '😂', '🔥', '👍']"
@@ -203,7 +238,12 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-1.5 mt-1.5">
+        <div
+          :class="[
+            'flex flex-wrap gap-1 mt-1.5',
+            msg.user_id === currentUser?.id ? 'justify-end' : 'justify-start',
+          ]"
+        >
           <button
             v-for="(count, emoji) in getGroupedReactions(msg.id)"
             :key="emoji"
