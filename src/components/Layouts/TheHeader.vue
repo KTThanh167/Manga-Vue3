@@ -1,6 +1,6 @@
 <template>
   <header
-    class="sticky top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b border-gray-100 dark:bg-slate-900/90 dark:border-gray-800 transition-all duration-300"
+    class="sticky top-0 z-[100] w-full bg-white/95 backdrop-blur-md border-b border-gray-100 dark:bg-slate-900/95 dark:border-gray-800 transition-all duration-300"
   >
     <div class="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
       <router-link to="/" class="flex items-center gap-2 shrink-0 group">
