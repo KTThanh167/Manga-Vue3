@@ -2,6 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
+import { supabase } from '../lib/supabaseClient'
 
 // Import components
 import ReaderHeader from '../components/ReadManga/ReaderHeader.vue'
@@ -16,6 +17,40 @@ const images = ref([])
 const loading = ref(true)
 const error = ref(null)
 
+// --- LOGIC LƯU LỊCH SỬ ĐỌC ---
+const saveReadingHistory = async (data) => {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error: upsertError } = await supabase.from('reading_history').upsert(
+      {
+        user_id: user.id,
+        manga_slug: String(route.params.slug),
+        manga_name: String(data.comic_name),
+        chapter_name: String(data.chapter_name),
+        // Đảm bảo tên cột này ĐÚNG với cột bạn vừa ADD ở bước 2
+        chapter_api_data:
+          route.query.api ||
+          `https://otruyenapi.com/v1/api/chuong/${route.params.slug}-chuong-${route.params.chapter}`,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: 'user_id, manga_slug',
+      },
+    )
+
+    if (upsertError) {
+      console.error('Lỗi lưu lịch sử chi tiết:', upsertError.message)
+    }
+  } catch (err) {
+    console.error('Lỗi thực thi:', err)
+  }
+}
+
+// --- LOGIC FETCH DỮ LIỆU CHƯƠNG ---
 const fetchChapterData = async () => {
   loading.value = true
   error.value = null
@@ -23,6 +58,8 @@ const fetchChapterData = async () => {
 
   try {
     let apiUrl = route.query.api
+
+    // Xử lý fallback nếu thiếu query api
     if (apiUrl && !apiUrl.startsWith('http')) {
       apiUrl = `https://otruyenapi.com${apiUrl}`
     }
@@ -34,9 +71,15 @@ const fetchChapterData = async () => {
     if (response.data?.status === 'success') {
       const data = response.data.data
       chapterData.value = data.item
+
       const domain = data.domain_cdn
       const path = data.item.chapter_path
+
+      // Map danh sách ảnh
       images.value = data.item.chapter_image.map((img) => `${domain}/${path}/${img.image_file}`)
+
+      // GỌI LƯU LỊCH SỬ SAU KHI FETCH THÀNH CÔNG
+      await saveReadingHistory(data.item)
     }
   } catch (err) {
     error.value = 'Chương này đang được cập nhật hoặc link đã thay đổi.'
@@ -46,8 +89,10 @@ const fetchChapterData = async () => {
   }
 }
 
+// --- ĐIỀU HƯỚNG CHƯƠNG ---
 const changeChapter = async (offset) => {
-  const nextChapterNum = parseInt(route.params.chapter) + offset
+  const currentNum = parseInt(route.params.chapter)
+  const nextChapterNum = currentNum + offset
   if (nextChapterNum <= 0) return
 
   try {
@@ -55,6 +100,7 @@ const changeChapter = async (offset) => {
     const listRes = await axios.get(
       `https://otruyenapi.com/v1/api/truyen-tranh/${route.params.slug}`,
     )
+
     if (listRes.data.status === 'success') {
       const chapters = listRes.data.data.item.chapters[0].server_data
       const nextChapter = chapters.find((ch) => parseInt(ch.chapter_name) === nextChapterNum)
@@ -80,13 +126,19 @@ const changeChapter = async (offset) => {
 const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
 onMounted(fetchChapterData)
-watch(() => route.params.chapter, fetchChapterData)
+
+// Watch sự thay đổi của chapter trên URL để fetch lại (khi nhấn Next/Prev)
+watch(
+  () => route.params.chapter,
+  () => {
+    fetchChapterData()
+  },
+)
 </script>
 
 <template>
   <div class="min-h-screen bg-neutral-900 text-gray-200">
     <ReaderHeader
-      class="sticky top-[76px] z-40"
       :comicName="chapterData?.comic_name"
       :currentChapter="route.params.chapter"
       :slug="route.params.slug"
@@ -103,7 +155,7 @@ watch(() => route.params.chapter, fetchChapterData)
         <p class="text-red-400 mb-4">{{ error }}</p>
         <button
           @click="router.push(`/truyen/${route.params.slug}`)"
-          class="bg-indigo-600 px-6 py-2 rounded-lg text-white"
+          class="bg-indigo-600 px-6 py-2 rounded-lg text-white font-bold"
         >
           Về trang chi tiết
         </button>
@@ -111,7 +163,11 @@ watch(() => route.params.chapter, fetchChapterData)
 
       <div v-else>
         <MangaPages :images="images" />
-        <ReaderFooter :currentChapter="route.params.chapter" @next="changeChapter(1)" />
+        <ReaderFooter
+          :currentChapter="route.params.chapter"
+          @next="changeChapter(1)"
+          @prev="changeChapter(-1)"
+        />
       </div>
     </main>
 
@@ -119,7 +175,29 @@ watch(() => route.params.chapter, fetchChapterData)
       @click="scrollToTop"
       class="fixed bottom-6 right-6 p-3 bg-white/10 backdrop-blur rounded-full hover:bg-white/20 transition-all border border-white/5 z-50 shadow-2xl"
     >
-      ↑
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-6 w-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M5 10l7-7m0 0l7 7m-7-7v18"
+        />
+      </svg>
     </button>
   </div>
 </template>
+
+<style scoped>
+:deep(img) {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+</style>
