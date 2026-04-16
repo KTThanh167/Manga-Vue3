@@ -44,9 +44,14 @@ export const useHomeStore = defineStore('home', () => {
       if (res.data.status === 'success') {
         let rawItems = res.data.data.items
 
-        // Nếu là trang Completed, chúng ta chủ động lọc những bộ có trạng thái 'completed'
         if (slug === 'truyen-hoan-thanh') {
-          mangas.value = rawItems.filter((m) => m.status === 'completed')
+          // 1. Lọc những truyện CÓ chương (để tránh truyện rác chưa ra chap nào)
+          // 2. Kiểm tra status là 'completed' (hoặc bỏ qua nếu API endpoint này đã lọc sẵn)
+          mangas.value = rawItems.filter((m) => {
+            const hasChapters = m.chapters_data?.length > 0 || m.last_chapter !== ''
+            return hasChapters
+          })
+
           listTitle.value = 'Truyện đã hoàn thành'
         } else {
           mangas.value = rawItems

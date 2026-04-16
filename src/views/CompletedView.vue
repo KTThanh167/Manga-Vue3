@@ -1,27 +1,46 @@
 <script setup>
 import { onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router' // Không cần useRouter vì Pagination đã lo việc đổi URL
 import { useHomeStore } from '../stores/home'
-import { useRoute, useRouter } from 'vue-router'
 import MangaCard from '../components/Common/MangaCard.vue'
 import Pagination from '@/components/Home/PaginationSession.vue'
 
 const homeStore = useHomeStore()
 const route = useRoute()
-const router = useRouter()
 
+/**
+ * Hàm load dữ liệu tập trung:
+ * Lấy page từ URL và gọi API với slug 'truyen-hoan-thanh'
+ */
 const loadCompleted = async () => {
   const page = parseInt(route.query.page) || 1
-  // Gọi hàm dùng chung với slug của truyện hoàn thành
   await homeStore.fetchListData('truyen-hoan-thanh', page)
 }
 
-onMounted(loadCompleted)
+/**
+ * Theo dõi sự thay đổi của page trên thanh địa chỉ (URL)
+ */
+watch(
+  () => route.query.page,
+  async () => {
+    // Cuộn lên đầu trang mượt mà trước khi load dữ liệu mới
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
+    await loadCompleted()
+  },
+)
 
-watch(() => route.query.page, loadCompleted)
+/**
+ * Khi lần đầu truy cập trang hoặc F5
+ */
+onMounted(() => {
+  loadCompleted()
+})
 
-const handlePageChange = (page) => {
-  router.push({ query: { ...route.query, page } })
-}
+// Ghi chú: handlePageChange không còn cần thiết vì
+// Component PaginationSession của bạn đã tự xử lý router.push rồi.
 </script>
 
 <template>
