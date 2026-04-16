@@ -86,6 +86,7 @@ watch(() => route.params.chapter, fetchChapterData)
 <template>
   <div class="min-h-screen bg-neutral-900 text-gray-200">
     <ReaderHeader
+      class="sticky top-[76px] z-40"
       :comicName="chapterData?.comic_name"
       :currentChapter="route.params.chapter"
       :slug="route.params.slug"
