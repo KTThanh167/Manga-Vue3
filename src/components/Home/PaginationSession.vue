@@ -1,30 +1,43 @@
 <script setup>
 import { computed } from 'vue'
 import { useHomeStore } from '../../stores/home'
+import { useRoute, useRouter } from 'vue-router'
 
 const homeStore = useHomeStore()
-const emit = defineEmits(['change-page'])
+const route = useRoute()
+const router = useRouter()
 
-// Giả định mỗi trang có 24 item (theo API Otruyen)
+// 1. Lấy trang hiện tại trực tiếp từ URL để đảm bảo luôn đúng khi F5
+const currentPage = computed(() => {
+  return Number(route.query.page) || 1
+})
+
+// 2. Giả định mỗi trang có 24 item (nên đồng bộ với API)
 const itemsPerPage = 24
 const totalPages = computed(() => {
   return Math.ceil(homeStore.totalItems / itemsPerPage) || 1
 })
 
-// Logic hiển thị các số trang xung quanh trang hiện tại
+// 3. Logic hiển thị các số trang (Dùng currentPage đã computed ở trên)
 const visiblePages = computed(() => {
-  const current = homeStore.currentPage
+  const current = currentPage.value
   const max = totalPages.value
 
-  // Hiển thị tối đa 3 số trang linh hoạt
   if (current === 1) return [1, 2, 3].filter((p) => p <= max)
   if (current === max) return [max - 2, max - 1, max].filter((p) => p > 0)
   return [current - 1, current, current + 1].filter((p) => p > 0 && p <= max)
 })
 
 const goToPage = (page) => {
-  if (page < 1 || page > totalPages.value || homeStore.loading) return
-  emit('change-page', page) // Gửi số trang ra cho component cha xử lý
+  // Chặn nếu click vào trang hiện tại hoặc trang không hợp lệ
+  if (page < 1 || page > totalPages.value || homeStore.loading || page === currentPage.value) return
+
+  router.push({
+    query: {
+      ...route.query,
+      page: page, // Vue Router sẽ tự chuyển page thành string trên URL
+    },
+  })
 }
 </script>
 
@@ -34,7 +47,7 @@ const goToPage = (page) => {
     class="mt-12 flex flex-wrap justify-center items-center gap-2 pb-10"
   >
     <button
-      v-if="homeStore.currentPage > 1"
+      v-if="currentPage > 1"
       @click="goToPage(1)"
       class="px-3 h-10 rounded-xl bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs transition shadow-sm uppercase tracking-tighter"
     >
@@ -42,8 +55,8 @@ const goToPage = (page) => {
     </button>
 
     <button
-      @click="goToPage(homeStore.currentPage - 1)"
-      :disabled="homeStore.currentPage === 1"
+      @click="goToPage(currentPage - 1)"
+      :disabled="currentPage === 1"
       class="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-indigo-50 disabled:opacity-30 transition shadow-sm flex items-center justify-center"
     >
       ❮
@@ -56,7 +69,7 @@ const goToPage = (page) => {
         @click="goToPage(page)"
         :class="[
           'w-10 h-10 rounded-xl font-bold text-sm transition-all duration-200 shadow-sm border',
-          homeStore.currentPage === page
+          currentPage === page
             ? 'bg-indigo-600 text-white border-indigo-600 scale-110 shadow-indigo-200'
             : 'bg-white border-gray-200 text-gray-600 hover:border-indigo-300',
         ]"
@@ -66,15 +79,15 @@ const goToPage = (page) => {
     </div>
 
     <button
-      @click="goToPage(homeStore.currentPage + 1)"
-      :disabled="homeStore.currentPage >= totalPages"
+      @click="goToPage(currentPage + 1)"
+      :disabled="currentPage >= totalPages"
       class="w-10 h-10 rounded-xl bg-white border border-gray-200 text-gray-500 hover:bg-indigo-50 disabled:opacity-30 transition shadow-sm flex items-center justify-center"
     >
       ❯
     </button>
 
     <button
-      v-if="homeStore.currentPage < totalPages"
+      v-if="currentPage < totalPages"
       @click="goToPage(totalPages)"
       class="px-3 h-10 rounded-xl bg-white border border-gray-200 text-indigo-600 hover:bg-indigo-50 font-bold text-xs transition shadow-sm uppercase tracking-tighter"
     >
@@ -82,9 +95,3 @@ const goToPage = (page) => {
     </button>
   </div>
 </template>
-
-<style scoped>
-button:active:not(:disabled) {
-  transform: scale(0.95);
-}
-</style>

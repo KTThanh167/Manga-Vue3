@@ -1,13 +1,41 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useHomeStore } from '../stores/home'
 import RecommendationSection from '@/components/Home/RecommendationSection.vue'
 import MangaGrid from '@/components/Home/MangaGrid.vue'
 import ActivitySidebar from '@/components/Home/ActivitySidebar.vue'
-const homeStore = useHomeStore()
 
+const homeStore = useHomeStore()
+const route = useRoute()
+
+// 1. Hàm load dữ liệu tập trung
+const loadData = async () => {
+  const pageFromUrl = parseInt(route.query.page) || 1
+  await homeStore.fetchHomeData(pageFromUrl)
+}
+
+// 2. Theo dõi sự thay đổi của page trên URL (dùng khi click nút phân trang)
+watch(
+  () => route.query.page,
+  async () => {
+    // Cuộn lên đầu trang mượt mà
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth', // Tạo hiệu ứng trượt nhẹ nhàng
+    })
+  },
+  () => {
+    loadData()
+  },
+)
+
+// 3. Khi F5 hoặc lần đầu vào trang
 onMounted(async () => {
-  await homeStore.fetchHomeData()
+  // Gọi loadData để nó tự lấy page từ URL hiện tại
+  await loadData()
+
+  // Các logic khác giữ nguyên
   await homeStore.fetchAndListen()
 })
 </script>
