@@ -3,6 +3,9 @@ import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
+import { useAuthStore } from '../../stores/auth'
+
+const authStore = useAuthStore()
 
 // --- STATE QUẢN LÝ ---
 const messages = ref([])
@@ -139,17 +142,22 @@ const fetchAndListen = async () => {
 const sendMessage = async () => {
   if (!newMessage.value.trim() || !currentUser.value) return
   const content = newMessage.value
-  newMessage.value = '' // Clear input sớm để UX mượt hơn
+  newMessage.value = ''
+
+  // Lấy tên mới nhất từ bảng profiles thông qua authStore
+  // (Đảm bảo authStore.profile đã được fetch ở onMounted)
+  const displayName =
+    authStore.profile?.username || currentUser.value.user_metadata.username || 'Thành viên'
 
   const { error } = await supabase.from('global_messages').insert({
     user_id: currentUser.value.id,
-    user_name: currentUser.value.user_metadata.username || 'Thành viên',
+    user_name: displayName, // Gửi tên đã chỉnh sửa lên DB
     content: content,
   })
 
   if (error) {
     console.error('Lỗi gửi tin:', error)
-    newMessage.value = content // Trả lại nội dung nếu lỗi
+    newMessage.value = content
   }
 }
 
@@ -206,7 +214,9 @@ onUnmounted(() => {
           ]"
         >
           <span class="font-bold text-[11px] text-indigo-500">
-            {{ msg.user_id === currentUser?.id ? 'Bạn' : msg.user_name }}
+            {{
+              msg.user_id === currentUser?.id ? authStore.profile?.username || 'Bạn' : msg.user_name
+            }}
           </span>
           <span class="text-[9px] text-gray-400">
             {{ formatTimeAgo(msg.created_at) }}
