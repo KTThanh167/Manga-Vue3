@@ -1,6 +1,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
+import { formatDistanceToNow } from 'date-fns'
+import { vi } from 'date-fns/locale'
 
 // --- STATE QUẢN LÝ ---
 const messages = ref([])
@@ -151,6 +153,19 @@ const sendMessage = async () => {
   }
 }
 
+// Hàm định dạng thời gian hiển thị
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return ''
+
+  const date = new Date(dateString)
+
+  // Tính khoảng cách từ thời gian đó đến hiện tại
+  return formatDistanceToNow(date, {
+    addSuffix: true, // Thêm hậu tố "trước" hoặc "sau"
+    locale: vi, // Chuyển sang tiếng Việt
+  }).replace('khoảng ', '') // Loại bỏ chữ "khoảng" để ngắn gọn hơn
+}
+
 // --- LIFECYCLE ---
 onMounted(async () => {
   chatChannel = await fetchAndListen()
@@ -194,12 +209,7 @@ onUnmounted(() => {
             {{ msg.user_id === currentUser?.id ? 'Bạn' : msg.user_name }}
           </span>
           <span class="text-[9px] text-gray-400">
-            {{
-              new Date(msg.created_at).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            }}
+            {{ formatTimeAgo(msg.created_at) }}
           </span>
         </div>
 
