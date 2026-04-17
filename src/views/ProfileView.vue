@@ -7,6 +7,7 @@ import { useRouter } from 'vue-router'
 const authStore = useAuthStore()
 const router = useRouter()
 
+// State chính để lưu thông tin và thống kê người dùng
 const loading = ref(true)
 const stats = ref({
   followedCount: 0,
@@ -14,12 +15,20 @@ const stats = ref({
   messageCount: 0,
 })
 
+// State cho phần chỉnh sửa Profile
 const isEditing = ref(false)
 const editData = ref({
   username: '',
   avatar_url: '',
 })
 const updating = ref(false)
+
+// State cho phần đổi mật khẩu
+const isChangingPassword = ref(false)
+const newPassword = ref('')
+const confirmPassword = ref('')
+const passwordLoading = ref(false)
+const oldPassword = ref('')
 
 const fetchUserStats = async () => {
   if (!authStore.user) return
@@ -84,6 +93,55 @@ const handleUpdateProfile = async () => {
   }
 }
 
+// Hàm xử lý đổi mật khẩu
+const handleUpdatePassword = async () => {
+  if (!oldPassword.value || !newPassword.value) {
+    alert('Vui lòng nhập đầy đủ thông tin!')
+    return
+  }
+
+  passwordLoading.value = true
+
+  try {
+    // BƯỚC 1: Xác thực mật khẩu cũ
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: authStore.user.email,
+      password: oldPassword.value,
+    })
+
+    if (signInError) {
+      throw new Error('Mật khẩu hiện tại không chính xác!')
+    }
+
+    // BƯỚC 2: Thêm một chút chờ đợi nhỏ (khoảng 500ms) để Session ổn định
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    // BƯỚC 3: Cập nhật mật khẩu mới
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword.value,
+    })
+
+    if (updateError) throw updateError
+
+    // BƯỚC 4: Xóa sạch Session và yêu cầu đăng nhập lại
+    alert('Đổi mật khẩu thành công! Vui lòng đăng nhập lại với mật khẩu mới.')
+
+    // Quan trọng: Clear hoàn toàn dữ liệu local
+    await supabase.auth.signOut()
+
+    // Reset form
+    oldPassword.value = ''
+    newPassword.value = ''
+    confirmPassword.value = ''
+    isChangingPassword.value = false
+
+    router.push('/login')
+  } catch (error) {
+    alert(error.message)
+  } finally {
+    passwordLoading.value = false
+  }
+}
 onMounted(async () => {
   loading.value = true
   await authStore.fetchProfile()
@@ -149,6 +207,16 @@ onMounted(async () => {
         <font-awesome-icon icon="fa-solid fa-user-pen" class="text-gray-400" />
       </div>
 
+      <!-- Đổi mật khẩu -->
+      <div
+        @click="isChangingPassword = true"
+        class="p-4 hover:bg-gray-50 flex items-center justify-between cursor-pointer border-b border-gray-50"
+      >
+        <span class="font-bold text-gray-700">Đổi mật khẩu</span>
+        <font-awesome-icon icon="fa-solid fa-lock" class="text-gray-400" />
+      </div>
+
+      <!-- Modal chỉnh sửa Profile -->
       <div
         v-if="isEditing"
         class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
@@ -196,6 +264,72 @@ onMounted(async () => {
               class="flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition disabled:opacity-50"
             >
               {{ updating ? 'Đang lưu...' : 'Lưu thay đổi' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal đổi mật khẩu -->
+      <div
+        v-if="isChangingPassword"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      >
+        <div
+          class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-300"
+        >
+          <h2 class="text-xl font-black mb-6 text-gray-800">Đổi mật khẩu mới</h2>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2"
+                >Mật khẩu hiện tại</label
+              >
+              <input
+                v-model="oldPassword"
+                type="password"
+                placeholder="Nhập mật khẩu đang dùng"
+                class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-red-400 outline-none transition"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2"
+                >Mật khẩu mới</label
+              >
+              <input
+                v-model="newPassword"
+                type="password"
+                placeholder="Tối thiểu 6 ký tự"
+                class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2"
+                >Xác nhận mật khẩu</label
+              >
+              <input
+                v-model="confirmPassword"
+                type="password"
+                placeholder="Nhập lại mật khẩu mới"
+                class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+              />
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-8">
+            <button
+              @click="isChangingPassword = false"
+              class="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition"
+            >
+              Hủy
+            </button>
+            <button
+              @click="handleUpdatePassword"
+              :disabled="passwordLoading"
+              class="flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition disabled:opacity-50"
+            >
+              {{ passwordLoading ? 'Đang cập nhật...' : 'Cập nhật' }}
             </button>
           </div>
         </div>

@@ -15,8 +15,9 @@ import {
   faSortDown,
   faUserPen,
   faRightFromBracket,
+  faLock,
 } from '@fortawesome/free-solid-svg-icons'
-library.add(faSortDown, faMagnifyingGlass, faHouse, faUserPen, faRightFromBracket)
+library.add(faSortDown, faMagnifyingGlass, faHouse, faUserPen, faRightFromBracket, faLock)
 
 const app = createApp(App)
 const pinia = createPinia()
