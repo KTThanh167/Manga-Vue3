@@ -31,7 +31,7 @@ const saveReadingHistory = async (data) => {
         manga_slug: String(route.params.slug),
         manga_name: String(data.comic_name),
         chapter_name: String(data.chapter_name),
-        // Đảm bảo tên cột này ĐÚNG với cột bạn vừa ADD ở bước 2
+
         chapter_api_data:
           route.query.api ||
           `https://otruyenapi.com/v1/api/chuong/${route.params.slug}-chuong-${route.params.chapter}`,
