@@ -14,6 +14,13 @@ const stats = ref({
   messageCount: 0,
 })
 
+const isEditing = ref(false)
+const editData = ref({
+  username: '',
+  avatar_url: '',
+})
+const updating = ref(false)
+
 const fetchUserStats = async () => {
   if (!authStore.user) return
 
@@ -39,6 +46,41 @@ const fetchUserStats = async () => {
     followedCount: followCount || 0,
     historyCount: readCount || 0,
     messageCount: msgCount || 0,
+  }
+}
+
+// Khởi tạo dữ liệu sửa khi mở Form
+const startEdit = () => {
+  editData.value = {
+    username: authStore.profile.username,
+    avatar_url: authStore.profile.avatar_url,
+  }
+  isEditing.value = true
+}
+
+// Hàm cập nhật Profile lên Supabase
+const handleUpdateProfile = async () => {
+  updating.value = true
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        username: editData.value.username,
+        avatar_url: editData.value.avatar_url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', authStore.user.id)
+
+    if (error) throw error
+
+    // Cập nhật lại store để UI thay đổi theo
+    await authStore.fetchProfile()
+    isEditing.value = false
+    alert('Cập nhật thông tin thành công!')
+  } catch (error) {
+    alert('Lỗi cập nhật: ' + error.message)
+  } finally {
+    updating.value = false
   }
 }
 
@@ -99,19 +141,63 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div
+        @click="startEdit"
+        class="p-4 hover:bg-gray-50 flex items-center justify-between cursor-pointer border-b border-gray-50"
+      >
+        <span class="font-bold text-gray-700">Chỉnh sửa thông tin cá nhân</span>
+        <font-awesome-icon icon="fa-solid fa-user-pen" class="text-gray-400" />
+      </div>
+
+      <div
+        v-if="isEditing"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+      >
         <div
-          class="p-4 hover:bg-gray-50 flex items-center justify-between cursor-pointer border-b border-gray-50"
+          class="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-300"
         >
-          <span class="font-bold text-gray-700">Chỉnh sửa thông tin cá nhân</span>
-          <font-awesome-icon icon="fa-solid fa-user-pen" class="text-gray-400" />
-        </div>
-        <div
-          class="p-4 hover:bg-red-50 flex items-center justify-between cursor-pointer text-red-500 font-bold"
-          @click="(supabase.auth.signOut(), router.push('/'))"
-        >
-          <span>Đăng xuất</span>
-          <font-awesome-icon icon="fa-solid fa-right-from-bracket" />
+          <h2 class="text-xl font-black mb-6 text-gray-800">Cập nhật hồ sơ</h2>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2"
+                >Tên hiển thị</label
+              >
+              <input
+                v-model="editData.username"
+                type="text"
+                class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-400 uppercase mb-2"
+                >Link ảnh đại diện (URL)</label
+              >
+              <input
+                v-model="editData.avatar_url"
+                type="text"
+                placeholder="https://..."
+                class="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-indigo-500 outline-none transition"
+              />
+            </div>
+          </div>
+
+          <div class="flex gap-3 mt-8">
+            <button
+              @click="isEditing = false"
+              class="flex-1 py-3 rounded-xl font-bold text-gray-500 hover:bg-gray-100 transition"
+            >
+              Hủy
+            </button>
+            <button
+              @click="handleUpdateProfile"
+              :disabled="updating"
+              class="flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition disabled:opacity-50"
+            >
+              {{ updating ? 'Đang lưu...' : 'Lưu thay đổi' }}
+            </button>
+          </div>
         </div>
       </div>
     </div>
