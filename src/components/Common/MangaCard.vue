@@ -13,34 +13,64 @@ const props = defineProps({
 const homeStore = useHomeStore()
 const router = useRouter()
 
+// 1. Logic xử lý ảnh: Nếu local thì dùng link đầy đủ, nếu API thì cộng thêm domain
+const imageUrl = computed(() => {
+  if (props.manga.isLocal) {
+    return props.manga.thumb_url || 'https://placehold.co/200x300?text=No+Image'
+  }
+  return `${homeStore.IMAGE_RESOURCES}${props.manga.thumb_url}`
+})
+
+// 2. Điều hướng an toàn: Kiểm tra slug trước khi push
+const goToDetail = () => {
+  if (!props.manga.slug) {
+    console.error('CẢNH BÁO: Truyện này không có slug!', props.manga)
+    return
+  }
+
+  router.push({
+    path: `/truyen/${props.manga.slug}`,
+    query: { isLocal: props.manga.isLocal ? 'true' : 'false' },
+  })
+}
+
+// 3. Xử lý danh sách chương (Chỉ cho API)
 const latestChapters = computed(() => {
-  // slice(0, 3) sẽ lấy từ phần tử index 0 đến 2 (tổng cộng 3)
+  if (props.manga.isLocal) return []
   const list = props.manga.chaptersLatest || []
   return list.slice(0, 3)
 })
 
 const goToChapter = (chap) => {
   if (!chap) return
-
-  const chapterApiUrl = `https://sv1.otruyencdn.com/v1/api/chapter/${chap.chapter_api_data.split('/').pop()}`
+  const id = chap.chapter_api_data?.split('/').pop()
+  const chapterApiUrl = `https://sv1.otruyencdn.com/v1/api/chapter/${id}`
 
   router.push({
     path: `/doc-truyen/${props.manga.slug}/${chap.chapter_name}`,
     query: { api: chapterApiUrl },
   })
 }
+
+// 4. Xử lý ảnh lỗi (Ngăn chặn vòng lặp vô tận)
+const onImageError = (event) => {
+  const fallback = 'https://placehold.co/200x300?text=No+Image'
+  if (event.target.src === fallback) return
+  event.target.src = fallback
+}
 </script>
 
 <template>
   <div
-    @click="router.push(`/truyen/${manga.slug}`)"
+    @click="goToDetail"
     class="group bg-neutral-900 rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer border border-neutral-800 flex flex-col h-full"
   >
     <div class="relative aspect-[3/4] overflow-hidden shrink-0">
       <img
-        :src="`${homeStore.IMAGE_RESOURCES}${manga.thumb_url}`"
+        :src="imageUrl"
         class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         loading="lazy"
+        @error="onImageError"
       />
     </div>
 
@@ -51,7 +81,7 @@ const goToChapter = (chap) => {
 
       <hr class="border-neutral-800 mb-2" />
 
-      <div class="flex-1 flex flex-col space-y-1">
+      <div v-if="!manga.isLocal" class="flex-1 flex flex-col space-y-1">
         <template v-if="latestChapters.length > 0">
           <div
             v-for="(chap, index) in latestChapters"
@@ -59,14 +89,11 @@ const goToChapter = (chap) => {
             @click.stop="goToChapter(chap)"
             class="flex justify-between items-center p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors"
           >
-            <div class="flex items-center gap-2 overflow-hidden">
-              <span
-                class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium truncate"
-              >
-                Chương {{ chap.chapter_name }}
-              </span>
-            </div>
-
+            <span
+              class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium truncate"
+            >
+              Chương {{ chap.chapter_name }}
+            </span>
             <span
               v-if="index === 0"
               class="text-[8px] bg-white text-black px-1 rounded font-bold uppercase shrink-0"
@@ -75,8 +102,15 @@ const goToChapter = (chap) => {
             </span>
           </div>
         </template>
-
         <p v-else class="text-[11px] text-gray-500 italic py-1 px-1.5">Đang cập nhật...</p>
+      </div>
+
+      <div v-else class="flex-1 flex items-center justify-center">
+        <span
+          class="text-[10px] bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded-full border border-indigo-700"
+        >
+          Truyện nội bộ
+        </span>
       </div>
     </div>
   </div>

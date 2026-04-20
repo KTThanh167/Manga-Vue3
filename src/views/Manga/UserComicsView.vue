@@ -10,19 +10,19 @@ const fetchLocalMangas = async () => {
   loading.value = true
   try {
     const { data, error } = await supabase
-      .from('local_mangas')
+      .from('mangas')
       .select('*')
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    //Map dữ liệu từ Supabase sang định dạng mà MangaCard yêu cầu
-    localMangas.value = data.map((item) => ({
-      _id: item.id, // MangaCard dùng _id
-      name: item.name,
+    // Map dữ liệu từ DB (title, thumbnail_url) sang format mà MangaCard mong đợi
+    localMangas.value = (data || []).map((item) => ({
+      _id: item.id,
+      name: item.title,
       slug: item.slug,
-      thumb_url: item.thumb_url,
-      // Đánh dấu đây là truyện nội bộ để sau này xử lý Click
+      thumb_url: item.thumbnail_url,
+      content: item.description,
       isLocal: true,
     }))
   } catch (err) {
@@ -50,7 +50,7 @@ onMounted(fetchLocalMangas)
 
     <div
       v-else-if="localMangas.length > 0"
-      class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-6"
+      class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-6 pl-3"
     >
       <MangaCard v-for="manga in localMangas" :key="manga._id" :manga="manga" />
     </div>

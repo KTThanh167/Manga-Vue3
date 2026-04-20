@@ -70,6 +70,11 @@ const router = createRouter({
           name: 'MangaEditor',
           component: () => import('../views/Admin/MangaEditorView.vue'),
         },
+        {
+          path: '/admin/manga/upload',
+          name: 'MangaUpload',
+          component: () => import('../views/Admin/MangaUploadView.vue'),
+        },
       ],
     },
 

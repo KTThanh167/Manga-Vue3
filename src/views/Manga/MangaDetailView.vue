@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useMangaStore } from '@/stores/manga'
 import { supabase } from '@/lib/supabaseClient'
 
-// Import components con
+// Import components
 import MangaInfo from '@/components/MangaDetail/MangaInfo.vue'
 import ChapterList from '@/components/MangaDetail/ChapterList.vue'
 
@@ -15,97 +15,109 @@ const mangaStore = useMangaStore()
 
 const manga = ref(null)
 const loading = ref(true)
-const lastRead = ref(null) // Lưu trữ thông tin chương đọc dở
+const lastRead = ref(null)
+const isLocal = route.query.isLocal === 'true' // Nhận biết từ query param
 const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
-// 1. Kiểm tra lịch sử đọc dở từ Supabase
+// 1. Lấy chi tiết truyện
+const fetchMangaDetail = async () => {
+  const slug = route.params.slug
+  const isLocal = route.query.isLocal === 'true' // Xác định nguồn dữ liệu
+
+  // 1. Debug kiểm tra slug
+  console.log('Slug đang lấy từ route là:', slug)
+  console.log('Nguồn dữ liệu là (Local?):', isLocal)
+
+  // 2. Chốt chặn slug bị lỗi
+  if (!slug || slug === 'undefined' || slug === 'null') {
+    console.error('Truyện không hợp lệ hoặc không tồn tại!')
+    loading.value = false
+    return
+  }
+
+  loading.value = true
+
+  try {
+    if (isLocal) {
+      // --- XỬ LÝ TRUYỆN NỘI BỘ (SUPABASE) ---
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle() // Dùng maybeSingle để tránh lỗi 406/PGRST116 khi không tìm thấy
+
+      if (error) throw error
+      if (!data) {
+        console.warning('Không tìm thấy dữ liệu truyện trong hệ thống!')
+        return
+      }
+
+      // Map dữ liệu từ DB về định dạng mà Component mong đợi
+      manga.value = {
+        ...data,
+        name: data.title,
+        content: data.description,
+        description: data.description,
+        thumb_url: data.thumbnail_url,
+        // Nếu bạn chưa làm bảng chapters cho local thì tạm để mảng rỗng
+        chapters: [],
+      }
+    } else {
+      // --- XỬ LÝ TRUYỆN API (OTRUYEN) ---
+      const [response] = await Promise.all([
+        axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`),
+        mangaStore.checkFollowStatus(slug),
+        fetchLastRead(),
+      ])
+
+      if (response.data?.status === 'success') {
+        manga.value = response.data.data.item
+      } else {
+        throw new Error('Không lấy được dữ liệu từ API')
+      }
+    }
+  } catch (err) {
+    console.error('Lỗi khi lấy chi tiết truyện:', err)
+    console.error('Có lỗi xảy ra khi tải truyện')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 2. Lịch sử đọc (Chỉ nên dùng cho API, local nếu muốn bạn có thể tự thêm bảng history riêng)
 const fetchLastRead = async () => {
+  if (isLocal) return // Tạm thời bỏ qua nếu là local
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
-
     const { data } = await supabase
       .from('reading_history')
       .select('chapter_name, chapter_api_data')
       .eq('user_id', user.id)
       .eq('manga_slug', route.params.slug)
       .maybeSingle()
-
-    if (data) {
-      lastRead.value = data
-      console.log('Đã tìm thấy lịch sử đọc:', data.chapter_name)
-    }
+    if (data) lastRead.value = data
   } catch (err) {
-    console.error('Lỗi lấy lịch sử đọc:', err)
+    console.error(err)
   }
 }
 
-// 2. Lấy chi tiết truyện từ API
-const fetchMangaDetail = async () => {
-  loading.value = true
-  try {
-    const slug = route.params.slug
-    const [response] = await Promise.all([
-      axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`),
-      mangaStore.checkFollowStatus(slug),
-      fetchLastRead(), // Chạy song song việc lấy lịch sử
-    ])
-
-    if (response.data?.status === 'success') {
-      manga.value = response.data.data.item
-    }
-  } catch (err) {
-    console.error('Lỗi API chi tiết:', err)
-  } finally {
-    loading.value = false
-  }
-}
-
-// 3. Logic Đọc từ đầu (Lấy chương cuối cùng trong danh sách - thường là chương 1)
-const startReadingFromStart = () => {
-  if (!manga.value || !manga.value.chapters.length) return
-
-  // O Truyện thường sắp xếp chương mới nhất lên đầu, nên chương 1 nằm ở cuối mảng
-  const serverData = manga.value.chapters[0].server_data
-  const firstChapter = serverData[serverData.length - 1]
-
-  router.push({
-    name: 'ReadManga',
-    params: { slug: manga.value.slug, chapter: firstChapter.chapter_name },
-    query: { api: firstChapter.chapter_api_data },
-  })
-}
-
-// 4. Logic Đọc tiếp
-const handleContinueReading = () => {
-  if (lastRead.value) {
+// 3. Logic đọc
+const startReading = () => {
+  if (isLocal) {
+    // Bạn sẽ điều hướng sang trang Đọc truyện nội bộ sau này
+    alert('Đang phát triển tính năng đọc truyện nội bộ')
+  } else {
+    const serverData = manga.value.chapters[0].server_data
+    const firstChapter = serverData[serverData.length - 1]
     router.push({
       name: 'ReadManga',
-      params: {
-        slug: route.params.slug,
-        chapter: lastRead.value.chapter_name,
-      },
-      query: { api: lastRead.value.chapter_api_data },
+      params: { slug: manga.value.slug, chapter: firstChapter.chapter_name },
+      query: { api: firstChapter.chapter_api_data },
     })
   }
-}
-
-const handleReadChapter = (chapter) => {
-  if (!manga.value) return
-  // Logic cũ để lưu vào store (nếu bạn vẫn dùng store song song)
-  mangaStore.recordReadingHistory(
-    {
-      title: manga.value.name,
-      slug: manga.value.slug,
-      categories: manga.value.category?.map((c) => c.name) || [],
-    },
-    {
-      name: `Chương ${chapter.chapter_name}`,
-      id: chapter.chapter_name,
-    },
-  )
 }
 
 onMounted(() => {
@@ -115,54 +127,26 @@ onMounted(() => {
 
 <template>
   <div class="container mx-auto px-4 py-8 max-w-5xl">
-    <div v-if="loading" class="flex flex-col items-center justify-center py-32 space-y-4">
-      <div class="relative w-16 h-16">
-        <div class="absolute inset-0 rounded-full border-4 border-indigo-100"></div>
-        <div class="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin"></div>
-      </div>
-      <p class="text-gray-400 font-medium animate-pulse">Đang tải thông tin truyện...</p>
+    <div v-if="loading" class="flex flex-col items-center justify-center py-32">
+      <div
+        class="animate-spin w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full"
+      ></div>
+      <p class="mt-4 text-gray-400">Đang tải...</p>
     </div>
 
     <div v-else-if="manga">
-      <MangaInfo :manga="manga" :imageResources="IMAGE_RESOURCES" />
+      <MangaInfo :manga="manga" :imageResources="isLocal ? '' : IMAGE_RESOURCES" />
 
-      <div class="flex flex-wrap gap-4 mt-8 mb-12">
+      <div class="flex gap-4 mt-8">
         <button
-          @click="startReadingFromStart"
-          class="flex-1 sm:flex-none px-10 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
+          @click="startReading"
+          class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold"
         >
-          Đọc từ đầu
-        </button>
-
-        <button
-          v-if="lastRead"
-          @click="handleContinueReading"
-          class="flex-1 sm:flex-none px-10 py-4 bg-white dark:bg-neutral-800 text-indigo-600 dark:text-indigo-400 border-2 border-indigo-600 dark:border-indigo-500/50 rounded-2xl font-bold hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center justify-center gap-3 active:scale-95"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-5 w-5"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          Đọc tiếp Chương {{ lastRead.chapter_name }}
+          {{ isLocal ? 'Đọc truyện' : 'Đọc từ đầu' }}
         </button>
       </div>
 
-      <ChapterList :chapters="manga.chapters" :slug="manga.slug" @readChapter="handleReadChapter" />
-    </div>
-
-    <div v-else class="text-center py-20">
-      <p class="text-gray-500">Không tìm thấy dữ liệu truyện này. Vui lòng thử lại sau!</p>
-      <button @click="$router.push('/')" class="mt-4 text-indigo-600 font-bold hover:underline">
-        Quay lại trang chủ
-      </button>
+      <ChapterList :chapters="manga.chapters" :slug="manga.slug" />
     </div>
   </div>
 </template>
