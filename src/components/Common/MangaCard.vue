@@ -13,15 +13,19 @@ const props = defineProps({
 const homeStore = useHomeStore()
 const router = useRouter()
 
-// 1. Logic xử lý ảnh: Nếu local thì dùng link đầy đủ, nếu API thì cộng thêm domain
+// 1. Logic xử lý ảnh: Tách biệt nguồn ảnh API và Local (Supabase/Internal)
 const imageUrl = computed(() => {
   if (props.manga.isLocal) {
+    // Truyện nội bộ: dùng trực tiếp link hoặc fallback
     return props.manga.thumb_url || 'https://placehold.co/200x300?text=No+Image'
   }
-  return `${homeStore.IMAGE_RESOURCES}${props.manga.thumb_url}`
+  // Truyện API Otruyen: ghép domain base
+  return props.manga.thumb_url
+    ? `${homeStore.IMAGE_RESOURCES}${props.manga.thumb_url}`
+    : 'https://placehold.co/200x300?text=No+Image'
 })
 
-// 2. Điều hướng an toàn: Kiểm tra slug trước khi push
+// 2. Điều hướng an toàn: Đảm bảo truyền query isLocal đúng định dạng
 const goToDetail = () => {
   if (!props.manga.slug) {
     console.error('CẢNH BÁO: Truyện này không có slug!', props.manga)
@@ -30,11 +34,12 @@ const goToDetail = () => {
 
   router.push({
     path: `/truyen/${props.manga.slug}`,
+    // Chuyển boolean thành string 'true'/'false' để tránh lỗi URL
     query: { isLocal: props.manga.isLocal ? 'true' : 'false' },
   })
 }
 
-// 3. Xử lý danh sách chương (Chỉ cho API)
+// 3. Xử lý danh sách chương (Chỉ hiển thị cho truyện API)
 const latestChapters = computed(() => {
   if (props.manga.isLocal) return []
   const list = props.manga.chaptersLatest || []
@@ -52,7 +57,7 @@ const goToChapter = (chap) => {
   })
 }
 
-// 4. Xử lý ảnh lỗi (Ngăn chặn vòng lặp vô tận)
+// 4. Xử lý ảnh lỗi
 const onImageError = (event) => {
   const fallback = 'https://placehold.co/200x300?text=No+Image'
   if (event.target.src === fallback) return
@@ -109,7 +114,7 @@ const onImageError = (event) => {
         <span
           class="text-[10px] bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded-full border border-indigo-700"
         >
-          Truyện nội bộ
+          Truyện User sáng tác
         </span>
       </div>
     </div>

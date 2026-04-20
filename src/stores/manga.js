@@ -5,7 +5,7 @@ import { useAuthStore } from './auth'
 export const useMangaStore = defineStore('manga', {
   state: () => ({
     readingHistory: [],
-    isFollowed: false, // Trạng thái theo dõi truyện
+    isFollowed: false,
     categories: [
       { name: 'Tất cả', slug: '' },
       { name: 'Action', slug: 'action' },
@@ -59,6 +59,7 @@ export const useMangaStore = defineStore('manga', {
   }),
 
   actions: {
+    // 1. Lịch sử đọc
     async recordReadingHistory(manga, chapter) {
       const {
         data: { user },
@@ -71,131 +72,108 @@ export const useMangaStore = defineStore('manga', {
         manga_name: manga.title,
         category_list: manga.categories || [],
         last_read_at: new Date().toISOString(),
-        // ĐẢM BẢO TÊN CỘT KHỚP VỚI HÌNH ẢNH SUPABASE BẠN GỬI
         last_chapter_name: chapter.name,
         last_chapter_id: String(chapter.id),
       }
 
       const { data, error } = await supabase
         .from('reading_history')
-        .upsert(historyData, {
-          onConflict: 'user_id, manga_slug', // Giúp cập nhật dòng cũ, không tạo dòng mới
-        })
+        .upsert(historyData, { onConflict: 'user_id, manga_slug' })
         .select()
 
       if (!error && data) {
-        // Cập nhật State để UI bên trang Lịch sử nhảy dữ liệu ngay
         const index = this.readingHistory.findIndex((i) => i.manga_slug === manga.slug)
-        if (index !== -1) {
-          this.readingHistory.splice(index, 1)
-        }
+        if (index !== -1) this.readingHistory.splice(index, 1)
         this.readingHistory.unshift(data[0])
       } else if (error) {
         console.error('Lỗi lưu DB:', error.message)
       }
     },
 
-    // stores/manga.js
     async fetchReadingHistory() {
       const auth = useAuthStore()
       if (!auth.user) return
-
       const { data, error } = await supabase
         .from('reading_history')
         .select('*')
         .eq('user_id', auth.user.id)
         .order('last_read_at', { ascending: false })
-
       if (error) {
         console.error('Lỗi lấy lịch sử:', error.message)
         return
       }
-
-      // QUAN TRỌNG: Phải gán data vào state của Pinia
       this.readingHistory = data
     },
-    //Logic theo dõi truyện
-    // 1. Kiểm tra xem truyện này user đã theo dõi chưa
+
+    // 2. Logic theo dõi truyện (Đã hợp nhất, tránh trùng lặp)
     async checkFollowStatus(slug) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        this.isFollowed = false
-        return
+      const auth = useAuthStore()
+      if (auth.user) {
+        const { data } = await supabase
+          .from('bookmarks')
+          .select('id')
+          .eq('user_id', auth.user.id)
+          .eq('manga_slug', slug)
+          .maybeSingle()
+        this.isFollowed = !!data
+      } else {
+        this.isFollowed = this.followedMangas.some((m) => m.slug === slug)
       }
-
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('manga_slug', slug)
-        .maybeSingle() // Trả về 1 dòng hoặc null, không báo lỗi nếu không tìm thấy
-
-      this.isFollowed = !!data
     },
-    // 2. Xử lý Toggle Theo dõi / Bỏ theo dõi
+
     async toggleFollow(manga) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const auth = useAuthStore()
 
-      if (!user) {
-        alert('Vui lòng đăng nhập để sử dụng tính năng theo dõi!')
-        return
-      }
+      // 1. Tìm vị trí truyện trong mảng Local
+      const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
 
-      try {
-        if (this.isFollowed) {
-          // Nếu đã theo dõi -> Thực hiện Xóa
+      // 2. Xử lý logic Toggle
+      if (index > -1) {
+        // --- TRƯỜNG HỢP: BỎ THEO DÕI ---
+        this.followedMangas.splice(index, 1)
+        this.isFollowed = false
+
+        // Xóa khỏi DB (nếu đã đăng nhập)
+        if (auth.user) {
           const { error } = await supabase
             .from('bookmarks')
             .delete()
-            .eq('user_id', user.id)
+            .eq('user_id', auth.user.id)
             .eq('manga_slug', manga.slug)
 
-          if (!error) this.isFollowed = false
-        } else {
-          // Nếu chưa theo dõi -> Thực hiện Thêm
-          const { error } = await supabase.from('bookmarks').insert({
-            user_id: user.id,
-            manga_slug: manga.slug,
-            manga_name: manga.name,
-            manga_thumb: manga.thumb_url,
-            category_list: manga.category?.map((c) => c.name) || [],
-          })
-
-          if (!error) this.isFollowed = true
+          if (error) console.error('Lỗi khi xóa bookmark:', error.message)
         }
-      } catch (err) {
-        console.error('Lỗi thao tác bookmark:', err)
-      }
-    },
-    checkFollowStatus(slug) {
-      this.isFollowed = this.followedMangas.some((m) => m.slug === slug)
-    },
-    toggleFollow(manga) {
-      const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
-
-      if (index > -1) {
-        // Nếu đã có -> Xóa khỏi danh sách
-        this.followedMangas.splice(index, 1)
-        this.isFollowed = false
       } else {
-        // Nếu chưa có -> Thêm vào (chỉ lưu những thông tin cần thiết để nhẹ máy)
-        this.followedMangas.unshift({
-          _id: manga._id,
-          name: manga.name,
-          slug: manga.slug,
-          thumb_url: manga.thumb_url,
-          last_chapter: manga.last_chapter || 'Đang cập nhật',
-          // Lưu thêm category đầu tiên để hiển thị ở card nếu muốn
+        // --- TRƯỜNG HỢP: THEO DÕI THÊM ---
+        const newManga = {
+          ...manga,
+          isLocal: !!manga.isLocal,
           category: manga.category ? [manga.category[0]] : [],
-        })
+        }
+
+        this.followedMangas.unshift(newManga)
         this.isFollowed = true
+
+        // Thêm vào DB (nếu đã đăng nhập)
+        if (auth.user) {
+          // Dùng upsert để tránh lỗi 409 Conflict
+          const { error } = await supabase.from('bookmarks').upsert(
+            {
+              user_id: auth.user.id,
+              manga_slug: manga.slug,
+              manga_name: manga.name,
+              manga_thumb: manga.thumb_url,
+              is_local: !!manga.isLocal, // Đảm bảo cột is_local đã tạo trong DB
+              category_list: newManga.category || [],
+            },
+            { onConflict: 'user_id, manga_slug' },
+          )
+
+          if (error) console.error('Lỗi khi thêm bookmark:', error.message)
+        }
       }
 
-      // QUAN TRỌNG: Lưu mảng này vào LocalStorage để F5 không mất
+      // 3. Luôn lưu vào LocalStorage để đồng bộ
       localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
     },
   },
