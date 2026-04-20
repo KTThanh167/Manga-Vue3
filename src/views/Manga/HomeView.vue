@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useHomeStore } from '../stores/home'
+import { useHomeStore } from '@/stores/home'
 import RecommendationSection from '@/components/Home/RecommendationSection.vue'
 import MangaGrid from '@/components/Home/MangaGrid.vue'
 import ActivitySidebar from '@/components/Home/ActivitySidebar.vue'

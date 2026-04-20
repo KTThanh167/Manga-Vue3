@@ -112,7 +112,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { EyeOutlined, EyeInvisibleOutlined } from '@ant-design/icons-vue'
 import { message } from 'ant-design-vue'

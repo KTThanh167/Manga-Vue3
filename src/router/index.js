@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import RegisterPage from '@/views/RegisterPage.vue'
-import LoginPage from '@/views/LoginPage.vue'
-import ResetPassword from '@/views/ResetPassword.vue'
+import HomeView from '@/views/Manga/HomeView.vue'
+import RegisterView from '@/views/Auth/RegisterView.vue'
+import LoginView from '@/views/Auth/LoginView.vue'
+import ResetPassword from '@/views/Auth/ResetPasswordView.vue'
 import { supabase } from '../lib/supabaseClient'
 
 //Import Layout
@@ -26,44 +26,44 @@ const router = createRouter({
         {
           path: 'truyen/:slug',
           name: 'manga-detail',
-          component: () => import('../views/MangaDetail.vue'),
+          component: () => import('@/views/Manga/MangaDetailView.vue'),
           props: true,
         },
         {
           path: 'doc-truyen/:slug/:chapter',
           name: 'ReadManga',
-          component: () => import('../views/ReadManga.vue'),
+          component: () => import('@/views/Manga/ReadManga.vue'),
         },
         {
           path: 'history',
           name: 'history',
-          component: () => import('../views/RecentReading.vue'),
+          component: () => import('@/views/User/RecentReading.vue'),
         },
         {
           path: 'admin/dashboard',
           name: 'admin-dashboard',
-          component: () => import('../views/AdminDashboard.vue'),
+          component: () => import('@/views/Admin/AdminDashboard.vue'),
           meta: { requiresAdmin: true },
         },
         {
           path: 'bookmark',
           name: 'bookmark',
-          component: () => import('../views/BookmarkView.vue'),
+          component: () => import('@/views/User/BookmarkView.vue'),
         },
         {
           path: 'profile',
           name: 'profile',
-          component: () => import('../views/ProfileView.vue'),
+          component: () => import('@/views/User/ProfileView.vue'),
         },
         {
           path: 'completed',
           name: 'completed',
-          component: () => import('../views/CompletedView.vue'),
+          component: () => import('@/views/User/CompletedView.vue'),
         },
         {
           path: '/user-comics',
           name: 'UserComics',
-          component: () => import('../views/UserComicsView.vue'),
+          component: () => import('@/views/Manga/UserComicsView.vue'),
         },
       ],
     },
@@ -76,12 +76,12 @@ const router = createRouter({
         {
           path: 'register',
           name: 'register',
-          component: RegisterPage,
+          component: RegisterView,
         },
         {
           path: 'login',
           name: 'login',
-          component: LoginPage,
+          component: LoginView,
         },
         {
           path: 'reset-password',
@@ -94,7 +94,11 @@ const router = createRouter({
       path: '/',
       component: EmptyLayout,
       children: [
-        { path: 'search', name: 'search', component: () => import('../views/SearchView.vue') },
+        {
+          path: 'search',
+          name: 'search',
+          component: () => import('../views/Search/SearchView.vue'),
+        },
       ],
     },
   ],

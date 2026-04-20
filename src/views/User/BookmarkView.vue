@@ -1,6 +1,6 @@
 <script setup>
-import { useMangaStore } from '../stores/manga'
-import MangaCard from '../components/Common/MangaCard.vue'
+import { useMangaStore } from '@/stores/manga'
+import MangaCard from '@/components/Common/MangaCard.vue'
 
 const mangaStore = useMangaStore()
 </script>

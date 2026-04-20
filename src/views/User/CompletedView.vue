@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router' // Không cần useRouter vì Pagination đã lo việc đổi URL
-import { useHomeStore } from '../stores/home'
-import MangaCard from '../components/Common/MangaCard.vue'
+import { useRoute } from 'vue-router'
+import { useHomeStore } from '@/stores/home'
+import MangaCard from '@/components/Common/MangaCard.vue'
 import Pagination from '@/components/Home/PaginationSession.vue'
 
 const homeStore = useHomeStore()
