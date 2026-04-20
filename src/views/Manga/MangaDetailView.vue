@@ -2,12 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
-import { useMangaStore } from '../stores/manga'
-import { supabase } from '../lib/supabaseClient'
+import { useMangaStore } from '@/stores/manga'
+import { supabase } from '@/lib/supabaseClient'
 
 // Import components con
-import MangaInfo from '../components/MangaDetail/MangaInfo.vue'
-import ChapterList from '../components/MangaDetail/ChapterList.vue'
+import MangaInfo from '@/components/MangaDetail/MangaInfo.vue'
+import ChapterList from '@/components/MangaDetail/ChapterList.vue'
 
 const route = useRoute()
 const router = useRouter()

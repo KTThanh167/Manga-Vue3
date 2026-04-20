@@ -1,14 +1,14 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue'
-import { useHomeStore } from '../stores/home'
-import { useMangaStore } from '../stores/manga' // Store chứa categories
+import { useHomeStore } from '@/stores/home'
+import { useMangaStore } from '@/stores/manga'
 import { useRoute, useRouter } from 'vue-router'
 
 // Import Components con
-import MangaCard from '../components/Common/MangaCard.vue'
+import MangaCard from '@/components/Common/MangaCard.vue'
 import Pagination from '@/components/Home/PaginationSession.vue'
-import SearchBanner from '../components/Search/SearchBanner.vue'
-import CategoryFilter from '../components/Search/CategoryFilter.vue'
+import SearchBanner from '@/components/Search/SearchBanner.vue'
+import CategoryFilter from '@/components/Search/CategoryFilter.vue'
 
 const homeStore = useHomeStore()
 const mangaStore = useMangaStore()

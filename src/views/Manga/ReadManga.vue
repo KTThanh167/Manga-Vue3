@@ -2,12 +2,12 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 
 // Import components
-import ReaderHeader from '../components/ReadManga/ReaderHeader.vue'
-import MangaPages from '../components/ReadManga/MangaPages.vue'
-import ReaderFooter from '../components/ReadManga/ReaderFooter.vue'
+import ReaderHeader from '@/components/ReadManga/ReaderHeader.vue'
+import MangaPages from '@/components/ReadManga/MangaPages.vue'
+import ReaderFooter from '@/components/ReadManga/ReaderFooter.vue'
 
 const route = useRoute()
 const router = useRouter()

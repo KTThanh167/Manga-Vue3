@@ -59,17 +59,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
 // Import components mới
-import AdminHeader from '../components/Admin/AdminHeader.vue'
-import StatCard from '../components/Admin/StatCard.vue'
-import QuickActions from '../components/Admin/QuickActions.vue'
-import UserManagement from '../components/Admin/UserManagement.vue'
-import MangaManagement from '../components/Admin/MangaManagement.vue'
-import LocalMangaManagement from '../components/Admin/LocalMangaManagement.vue'
+import AdminHeader from '@/components/Admin/AdminHeader.vue'
+import StatCard from '@/components/Admin/StatCard.vue'
+import QuickActions from '@/components/Admin/QuickActions.vue'
+import UserManagement from '@/components/Admin/UserManagement.vue'
+import MangaManagement from '@/components/Admin/MangaManagement.vue'
+import LocalMangaManagement from '@/components/Admin/LocalMangaManagement.vue'
 
 const router = useRouter()
 const userProfile = ref(null)
