@@ -1,41 +1,77 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { supabase } from '../../lib/supabaseClient'
-import MangaForm from './MangaForm.vue'
 import { useRouter } from 'vue-router'
+import { supabase } from '../../lib/supabaseClient'
+import { message, Modal } from 'ant-design-vue'
 
 const router = useRouter()
-
 const mangas = ref([])
 const loading = ref(false)
-const showForm = ref(false)
-const editingManga = ref(null)
 
 const fetchMangas = async () => {
   loading.value = true
-  // Lấy dữ liệu từ bảng local_mangas
-  const { data } = await supabase
-    .from('local_mangas')
+
+  const { data, error } = await supabase
+    .from('mangas')
     .select('*')
     .order('created_at', { ascending: false })
 
-  mangas.value = data || []
+  if (error) {
+    console.error('Lỗi khi fetch:', error)
+    loading.value = false
+    return
+  }
+  mangas.value = (data || []).map((m) => ({
+    ...m,
+    name: m.title,
+    thumb_url: m.thumbnail_url,
+  }))
+
   loading.value = false
 }
 
-const handleAdd = () => router.push('/admin/manga/edit')
-
-const handleEdit = (manga) => router.push(`/admin/manga/edit/${manga.id}`)
-
-const handleSaved = () => {
-  showForm.value = false
-  fetchMangas()
+// Chuyển hướng sang View riêng để thêm mới
+const handleAdd = () => {
+  router.push('/admin/manga/upload')
 }
 
-const deleteManga = async (id) => {
-  if (!confirm('Bạn có chắc chắn xóa truyện này?')) return
-  await supabase.from('local_mangas').delete().eq('id', id)
-  fetchMangas()
+// Chuyển hướng sang View riêng để sửa (kèm ID)
+const handleEdit = (manga) => {
+  router.push(`/admin/manga/edit/${manga.id}`)
+}
+
+const deleteManga = (id) => {
+  Modal.confirm({
+    title: 'Bạn có chắc chắn muốn xóa?',
+    content: 'Truyện này và các dữ liệu liên quan sẽ bị xóa vĩnh viễn và không thể khôi phục.',
+    okText: 'Xóa',
+    okType: 'danger',
+    cancelText: 'Hủy',
+    async onOk() {
+      // Logic xóa dữ liệu
+      const { error } = await supabase.from('mangas').delete().eq('id', id)
+
+      if (error) {
+        console.error('Lỗi khi xóa:', error)
+        message.error('Lỗi khi xóa: ' + error.message)
+      } else {
+        message.success('Đã xóa truyện thành công!')
+        fetchMangas() // Tải lại danh sách
+      }
+    },
+    onCancel() {
+      console.log('Đã hủy xóa')
+    },
+  })
+}
+
+const onImageError = (event) => {
+  const fallbackUrl = 'https://placehold.co/40x56' // Dùng placehold.co thay vì via.placeholder
+
+  // NẾU src hiện tại ĐÃ là ảnh lỗi rồi thì DỪNG LẠI, không set nữa
+  if (event.target.src === fallbackUrl) return
+
+  event.target.src = fallbackUrl
 }
 
 onMounted(fetchMangas)
@@ -45,7 +81,10 @@ onMounted(fetchMangas)
   <div class="bg-white shadow rounded-lg p-6">
     <div class="flex justify-between items-center mb-6">
       <h3 class="text-lg font-black text-gray-900">Quản Lý Truyện Nội Bộ</h3>
-      <button @click="handleAdd" class="bg-green-600 text-white px-4 py-2 rounded-lg font-bold">
+      <button
+        @click="handleAdd"
+        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold transition"
+      >
         ➕ Thêm truyện
       </button>
     </div>
@@ -69,11 +108,9 @@ onMounted(fetchMangas)
             <td class="px-6 py-4 whitespace-nowrap">
               <div class="flex items-center">
                 <img
-                  :src="
-                    'https://otruyenapi.com/uploads/comics/' + (manga.thumb_url || 'default.jpg')
-                  "
+                  :src="manga.thumb_url || 'https://placehold.co/40x56'"
                   class="w-10 h-14 object-cover rounded mr-3"
-                  @error="$event.target.src = 'https://via.placeholder.com/40x56'"
+                  @error="onImageError"
                 />
                 <div class="text-sm font-bold text-gray-900">{{ manga.name }}</div>
               </div>
@@ -101,19 +138,10 @@ onMounted(fetchMangas)
             </td>
           </tr>
           <tr v-if="mangas.length === 0">
-            <td colspan="4" class="px-6 py-4 text-center text-gray-500">
-              Chưa có truyện nào trong cơ sở dữ liệu.
-            </td>
+            <td colspan="4" class="px-6 py-4 text-center text-gray-500">Chưa có truyện nào.</td>
           </tr>
         </tbody>
       </table>
     </div>
-
-    <MangaForm
-      v-if="showForm"
-      :mangaData="editingManga"
-      @saved="handleSaved"
-      @cancelled="showForm = false"
-    />
   </div>
 </template>
