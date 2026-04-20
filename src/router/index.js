@@ -65,6 +65,11 @@ const router = createRouter({
           name: 'UserComics',
           component: () => import('@/views/Manga/UserComicsView.vue'),
         },
+        {
+          path: '/admin/manga/edit/:id?',
+          name: 'MangaEditor',
+          component: () => import('../views/Admin/MangaEditorView.vue'),
+        },
       ],
     },
 
