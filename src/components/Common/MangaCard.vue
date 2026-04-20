@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue' // Cần import computed ở đây
+import { computed } from 'vue'
 import { useHomeStore } from '../../stores/home'
 import { useRouter } from 'vue-router'
 

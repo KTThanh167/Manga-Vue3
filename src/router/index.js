@@ -60,6 +60,11 @@ const router = createRouter({
           name: 'completed',
           component: () => import('../views/CompletedView.vue'),
         },
+        {
+          path: '/user-comics',
+          name: 'UserComics',
+          component: () => import('../views/UserComicsView.vue'),
+        },
       ],
     },
 

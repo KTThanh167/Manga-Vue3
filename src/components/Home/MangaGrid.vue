@@ -5,7 +5,7 @@ import MangaCard from '@/components/Common/MangaCard.vue'
 
 const homeStore = useHomeStore()
 
-// Thêm hàm xử lý chuyển trang
+//Hàm xử lý chuyển trang
 const handlePageChange = async (newPage) => {
   await homeStore.fetchHomeData(newPage)
 }
