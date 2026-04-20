@@ -12,13 +12,13 @@ const currentPage = computed(() => {
   return Number(route.query.page) || 1
 })
 
-// 2. Giả định mỗi trang có 24 item (nên đồng bộ với API)
+// 2. Giả định mỗi trang có 24 item
 const itemsPerPage = 24
 const totalPages = computed(() => {
   return Math.ceil(homeStore.totalItems / itemsPerPage) || 1
 })
 
-// 3. Logic hiển thị các số trang (Dùng currentPage đã computed ở trên)
+// 3. Logic hiển thị các số trang
 const visiblePages = computed(() => {
   const current = currentPage.value
   const max = totalPages.value

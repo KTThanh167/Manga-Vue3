@@ -16,6 +16,10 @@
         </span>
       </router-link>
 
+      <router-link to="/user-comics" class="hover:text-green-500 font-bold text-orange-500">
+        ✍️ Truyện do người dùng đóng góp
+      </router-link>
+
       <div class="flex items-center gap-2 sm:gap-4">
         <div class="relative flex items-center">
           <router-link
@@ -130,7 +134,6 @@
 </template>
 
 <style scoped>
-/* Fix lỗi marquee nếu chưa có keyframes */
 @keyframes marquee {
   0% {
     transform: translateX(0);

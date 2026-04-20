@@ -40,6 +40,7 @@
         <div class="mt-8">
           <UserManagement v-if="showSection === 'users'" />
           <MangaManagement v-if="showSection === 'mangas'" />
+          <LocalMangaManagement v-if="showSection === 'local_mangas'" />
 
           <div v-else-if="showSection === 'reports'" class="bg-white shadow rounded-lg p-6">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Báo Cáo & Thống Kê</h3>
@@ -68,6 +69,7 @@ import StatCard from '../components/Admin/StatCard.vue'
 import QuickActions from '../components/Admin/QuickActions.vue'
 import UserManagement from '../components/Admin/UserManagement.vue'
 import MangaManagement from '../components/Admin/MangaManagement.vue'
+import LocalMangaManagement from '../components/Admin/LocalMangaManagement.vue'
 
 const router = useRouter()
 const userProfile = ref(null)
@@ -78,36 +80,31 @@ const stats = ref({ totalUsers: 0, totalMangas: 0, totalReads: 0, totalRatings: 
 const checkAdminAccess = async () => {
   /* logic check admin của bạn */
 }
+
 const fetchStats = async () => {
   try {
-    // Chạy song song: 2 câu lệnh từ Supabase và 1 câu lệnh từ API Otruyen
-    const [usersCount, readsCount, otruyenRes] = await Promise.all([
-      // 1. Lấy tổng User từ Supabase
+    const [usersCount, readsCount, otruyenRes, localMangas] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
-
-      // 2. Lấy tổng lượt đọc từ Supabase
       supabase.from('reading_history').select('*', { count: 'exact', head: true }),
-
-      // 3. Lấy dữ liệu danh sách mới nhất từ Otruyen để lấy con số tổng (totalItems)
       axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1'),
+      // Lấy thêm số lượng truyện nội bộ từ Supabase
+      supabase.from('local_mangas').select('*', { count: 'exact', head: true }),
     ])
 
-    // Trích xuất con số tổng từ kết quả API
-    // Cấu trúc API Otruyen: res.data.data.params.pagination.totalItems
     const totalApiMangas = otruyenRes.data?.data?.params?.pagination?.totalItems || 0
+    const totalLocalMangas = localMangas.count || 0
 
     stats.value = {
       totalUsers: usersCount.count || 0,
-      totalMangas: totalApiMangas || 0,
+      totalMangas: totalApiMangas + totalLocalMangas, // Cộng dồn cả 2 nguồn
       totalReads: readsCount.count || 0,
       totalRatings: 0,
     }
-
-    console.log('Cập nhật thống kê thành công:', stats.value)
   } catch (err) {
     console.error('Lỗi khi lấy dữ liệu thống kê:', err)
   }
 }
+
 const handleLogout = async () => {
   await supabase.auth.signOut()
   router.push('/login')

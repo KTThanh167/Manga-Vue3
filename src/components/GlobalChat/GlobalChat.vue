@@ -80,7 +80,6 @@ const fetchAndListen = async () => {
   } = await supabase.auth.getUser()
   currentUser.value = user
 
-  // --- PHẦN BỊ THIẾU ĐÂY RỒI ---
   // 2. Lấy 50 tin nhắn cũ từ Database để hiển thị khi load trang
   const { data: msgData } = await supabase
     .from('global_messages')
@@ -103,7 +102,7 @@ const fetchAndListen = async () => {
 
   await scrollToBottom()
 
-  // 4. Bắt đầu thiết lập lắng nghe Realtime (Phần này bạn đã viết đúng)
+  // 4. Bắt đầu thiết lập lắng nghe Realtime
   const channel = supabase
     .channel('global-chat-room')
     .on(

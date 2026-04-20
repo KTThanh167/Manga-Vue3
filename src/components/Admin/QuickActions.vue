@@ -25,6 +25,12 @@ defineEmits(['changeSection'])
         >
           ⚙️ Cài Đặt
         </button>
+        <button
+          @click="$emit('changeSection', 'local_mangas')"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-md text-sm font-medium transition"
+        >
+          📚 Truyện Nội Bộ
+        </button>
       </div>
     </div>
   </div>
