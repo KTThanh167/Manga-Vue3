@@ -6,9 +6,7 @@ import { onMounted } from 'vue'
 const mangaStore = useMangaStore()
 
 onMounted(async () => {
-  console.log('Trước khi load:', mangaStore.followedMangas)
   await mangaStore.loadBookmarks()
-  console.log('Sau khi load:', mangaStore.followedMangas)
 })
 </script>
 

@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useHomeStore } from '../../stores/home'
 import { useRouter } from 'vue-router'
 
@@ -9,6 +9,8 @@ const props = defineProps({
     required: true,
   },
 })
+
+console.log('Card nhận được manga:', props.manga)
 
 const homeStore = useHomeStore()
 const router = useRouter()
@@ -40,10 +42,21 @@ const goToDetail = () => {
 }
 
 // 3. Xử lý danh sách chương (Chỉ hiển thị cho truyện API)
-const latestChapters = computed(() => {
+const latestChapter = computed(() => {
   if (props.manga.isLocal) return []
   const list = props.manga.chaptersLatest || []
-  return list.slice(0, 3)
+
+  if (list.length === 0) return []
+
+  // --- LOGIC PHÂN LOẠI DỮ LIỆU ---
+
+  // Kiểm tra nếu dữ liệu có dạng "lồng" (kiểu Database)
+  if (list[0].server_data && Array.isArray(list[0].server_data)) {
+    return list[0].server_data.slice(-3)
+  }
+
+  // Nếu không, mặc định nó là dạng "phẳng" (kiểu API Home)
+  return list.slice(-3)
 })
 
 const goToChapter = (chap) => {
@@ -63,6 +76,14 @@ const onImageError = (event) => {
   if (event.target.src === fallback) return
   event.target.src = fallback
 }
+
+watch(
+  () => props.manga,
+  (newVal) => {
+    console.log('🔍 Data nhận được tại MangaCard:', newVal)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -87,23 +108,17 @@ const onImageError = (event) => {
       <hr class="border-neutral-800 mb-2" />
 
       <div v-if="!manga.isLocal" class="flex-1 flex flex-col space-y-1">
-        <template v-if="latestChapters.length > 0">
+        <template v-if="latestChapter.length > 0">
           <div
-            v-for="(chap, index) in latestChapters"
+            v-for="(chap, index) in latestChapter"
             :key="index"
             @click.stop="goToChapter(chap)"
-            class="flex justify-between items-center p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors"
+            class="p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors cursor-pointer"
           >
             <span
               class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium truncate"
             >
-              Chương {{ chap.chapter_name }}
-            </span>
-            <span
-              v-if="index === 0"
-              class="text-[8px] bg-white text-black px-1 rounded font-bold uppercase shrink-0"
-            >
-              Mới
+              {{ chap.chapter_name ? `Chương ${chap.chapter_name}` : 'Check Data!' }}
             </span>
           </div>
         </template>
@@ -127,5 +142,21 @@ const onImageError = (event) => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+@keyframes blink-animation {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  } /* Mờ dần */
+  100% {
+    opacity: 1;
+  }
+}
+
+.blink-badge {
+  animation: blink-animation 1.5s infinite;
 }
 </style>
