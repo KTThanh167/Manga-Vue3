@@ -56,6 +56,7 @@ export const useMangaStore = defineStore('manga', {
       { name: 'Webtoon', slug: 'webtoon' },
       { name: 'Xuyên Không', slug: 'xuyen-khong' },
     ],
+    loadingBookmarks: false,
     followedMangas: JSON.parse(localStorage.getItem('manga_followed')) || [],
   }),
 
@@ -109,16 +110,24 @@ export const useMangaStore = defineStore('manga', {
     // 2. Logic theo dõi truyện (Đã hợp nhất, tránh trùng lặp)
     async checkFollowStatus(slug) {
       const auth = useAuthStore()
+
+      // 1. Kiểm tra ưu tiên trong mảng Local trước (Luôn có sẵn và nhanh)
+      const isFoundInLocal = this.followedMangas.some((m) => m.slug === slug)
+
       if (auth.user) {
+        // 2. Nếu đăng nhập, check thêm DB để đảm bảo đồng bộ
         const { data } = await supabase
           .from('bookmarks')
           .select('id')
           .eq('user_id', auth.user.id)
           .eq('manga_slug', slug)
           .maybeSingle()
-        this.isFollowed = !!data
+
+        // Nếu có trong DB -> true, nếu không thì lấy theo mảng Local
+        this.isFollowed = !!data || isFoundInLocal
       } else {
-        this.isFollowed = this.followedMangas.some((m) => m.slug === slug)
+        // Nếu chưa đăng nhập thì chỉ dùng mảng Local
+        this.isFollowed = isFoundInLocal
       }
     },
 
@@ -138,6 +147,43 @@ export const useMangaStore = defineStore('manga', {
         this.lastReadChapter = data
       }
       return data
+    },
+
+    // Hàm này sẽ được gọi khi người dùng đăng nhập để đồng bộ bookmark từ DB về Local
+    async loadBookmarks() {
+      const auth = useAuthStore()
+      if (!auth.user) return
+
+      // 1. Fetch từ Database
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .eq('user_id', auth.user.id)
+
+      if (error) {
+        console.error('Lỗi khi fetch bookmark:', error)
+        return
+      }
+
+      // 2. CHỈ ghi đè nếu Database thực sự có dữ liệu
+      if (data && data.length > 0) {
+        this.followedMangas = data.map((item) => ({
+          ...item,
+          name: item.manga_name,
+          slug: item.manga_slug,
+          thumb_url: item.manga_thumb,
+          isLocal: item.is_local,
+          category: item.category_list,
+          chaptersLatest: item.chapters_latest || [],
+        }))
+
+        // Đồng bộ lại vào LocalStorage sau khi fetch từ DB thành công
+        localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
+      } else {
+        // Nếu DB rỗng, có thể là do user mới hoặc lỗi đồng bộ.
+        // Chúng ta không nên xóa trắng danh sách hiện có mà chỉ nên cảnh báo hoặc giữ nguyên.
+        console.warn('Dữ liệu bookmark từ DB trống, giữ nguyên dữ liệu LocalStorage')
+      }
     },
 
     async toggleFollow(manga) {
@@ -168,6 +214,7 @@ export const useMangaStore = defineStore('manga', {
           ...manga,
           isLocal: !!manga.isLocal,
           category: manga.category ? [manga.category[0]] : [],
+          chaptersLatest: manga.chaptersLatest || [],
         }
 
         this.followedMangas.unshift(newManga)
@@ -184,6 +231,7 @@ export const useMangaStore = defineStore('manga', {
               manga_thumb: manga.thumb_url,
               is_local: !!manga.isLocal, // Đảm bảo cột is_local đã tạo trong DB
               category_list: newManga.category || [],
+              chapters_latest: manga.chaptersLatest || [],
             },
             { onConflict: 'user_id, manga_slug' },
           )

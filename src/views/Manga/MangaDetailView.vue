@@ -18,7 +18,7 @@ const fetchMangaDetail = async () => {
   const isLocal = route.query.isLocal === 'true'
 
   try {
-    // 1. Fetch chi tiết truyện (Local hoặc API)
+    // 1. Fetch dữ liệu truyện trước
     if (isLocal) {
       const { data, error } = await supabase
         .from('mangas')
@@ -26,34 +26,35 @@ const fetchMangaDetail = async () => {
         .eq('slug', slug)
         .maybeSingle()
       if (error) throw error
-      if (data) {
-        manga.value = {
-          ...data,
-          name: data.title,
-          thumb_url: data.thumbnail_url,
-          isLocal: true,
-          chapters: [],
-        }
+      manga.value = {
+        ...data,
+        name: data.title,
+        thumb_url: data.thumbnail_url,
+        isLocal: true,
+        chapters: [],
       }
     } else {
       const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`)
       manga.value = res.data.data.item
     }
 
-    // --- ĐỒNG BỘ TRẠNG THÁI ---
+    // 2. Chờ dữ liệu truyện có rồi mới gọi các hàm đồng bộ
     if (manga.value) {
-      await mangaStore.checkFollowStatus(slug)
-      await mangaStore.fetchLastRead(slug)
+      // Dùng Promise.all để gọi song song, nhanh hơn là gọi từng cái
+      await Promise.all([mangaStore.checkFollowStatus(slug), mangaStore.fetchLastRead(slug)])
     }
-    // ------------------------------------------
   } catch (err) {
     console.error('Lỗi load chi tiết:', err)
   } finally {
+    // 3. Chỉ tắt loading khi mọi thứ đã xong
     loading.value = false
   }
 }
 
-onMounted(fetchMangaDetail)
+onMounted(async () => {
+  await fetchMangaDetail()
+  await mangaStore.checkFollowStatus(route.params.slug)
+})
 </script>
 
 <template>

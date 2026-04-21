@@ -1,8 +1,15 @@
 <script setup>
 import { useMangaStore } from '@/stores/manga'
 import MangaCard from '@/components/Common/MangaCard.vue'
+import { onMounted } from 'vue'
 
 const mangaStore = useMangaStore()
+
+onMounted(async () => {
+  console.log('Trước khi load:', mangaStore.followedMangas)
+  await mangaStore.loadBookmarks()
+  console.log('Sau khi load:', mangaStore.followedMangas)
+})
 </script>
 
 <template>
@@ -43,7 +50,7 @@ const mangaStore = useMangaStore()
       class="text-center py-32 bg-gray-50 rounded-[40px] border-2 border-dashed border-gray-200 mx-4"
     >
       <div class="text-7xl mb-6">🏜️</div>
-      <h3 class="text-xl font-bold text-gray-800 mb-2">Chưa có "mối tình" nào được lưu!</h3>
+      <h3 class="text-xl font-bold text-gray-800 mb-2">Chưa có truyện nào được theo dõi</h3>
       <p class="text-gray-400 text-sm max-w-xs mx-auto mb-8">
         Đừng để danh sách này trống trải, hãy đi tìm những bộ Manga yêu thích thôi nào!
       </p>
