@@ -42,21 +42,18 @@ const goToDetail = () => {
 }
 
 // 3. Xử lý danh sách chương (Chỉ hiển thị cho truyện API)
-const latestChapter = computed(() => {
+const latestChapters = computed(() => {
   if (props.manga.isLocal) return []
   const list = props.manga.chaptersLatest || []
 
   if (list.length === 0) return []
 
-  // --- LOGIC PHÂN LOẠI DỮ LIỆU ---
+  // Dùng toán tử 3 ngôi gán trực tiếp vào const, vừa sạch vừa hết warning
+  const rawChapters =
+    list[0].server_data && Array.isArray(list[0].server_data) ? list[0].server_data : list
 
-  // Kiểm tra nếu dữ liệu có dạng "lồng" (kiểu Database)
-  if (list[0].server_data && Array.isArray(list[0].server_data)) {
-    return list[0].server_data.slice(-3)
-  }
-
-  // Nếu không, mặc định nó là dạng "phẳng" (kiểu API Home)
-  return list.slice(-3)
+  // Đảo ngược và cắt mảng
+  return [...rawChapters].reverse().slice(0, 3)
 })
 
 const goToChapter = (chap) => {
@@ -75,6 +72,17 @@ const onImageError = (event) => {
   const fallback = 'https://placehold.co/200x300?text=No+Image'
   if (event.target.src === fallback) return
   event.target.src = fallback
+}
+
+const timeAgo = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const diff = Math.floor((new Date() - date) / 1000)
+
+  if (diff < 60) return 'Vừa xong'
+  if (diff < 3600) return Math.floor(diff / 60) + ' phút trước'
+  if (diff < 86400) return Math.floor(diff / 3600) + ' giờ trước'
+  return Math.floor(diff / 86400) + ' ngày trước'
 }
 
 watch(
@@ -108,17 +116,21 @@ watch(
       <hr class="border-neutral-800 mb-2" />
 
       <div v-if="!manga.isLocal" class="flex-1 flex flex-col space-y-1">
-        <template v-if="latestChapter.length > 0">
+        <template v-if="latestChapters.length > 0">
           <div
-            v-for="(chap, index) in latestChapter"
+            v-for="(chap, index) in latestChapters"
             :key="index"
             @click.stop="goToChapter(chap)"
-            class="p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors cursor-pointer"
+            class="flex justify-between items-center p-1.5 rounded-lg hover:bg-neutral-800 group/item transition-colors cursor-pointer"
           >
             <span
               class="text-[11px] text-gray-400 group-hover/item:text-indigo-400 font-medium truncate"
             >
-              {{ chap.chapter_name ? `Chương ${chap.chapter_name}` : 'Check Data!' }}
+              Chương {{ chap.chapter_name }}
+            </span>
+
+            <span v-if="index === 0" class="text-[9px] text-gray-500 font-medium shrink-0 ml-2">
+              {{ timeAgo(manga.updatedAt) }}
             </span>
           </div>
         </template>
