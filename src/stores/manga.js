@@ -174,6 +174,7 @@ export const useMangaStore = defineStore('manga', {
             isLocal: item.is_local,
             category: item.category_list,
             chaptersLatest: item.chapters_latest || [],
+            updatedAt: item.updated_at,
           }))
         }
       }
@@ -204,13 +205,9 @@ export const useMangaStore = defineStore('manga', {
     async toggleFollow(manga) {
       const auth = useAuthStore()
 
-      // 1. Kiểm tra đầu vào
-      console.log('🔍 [Debug] Bắt đầu Toggle:', manga.name)
-      console.log('🔍 [Debug] User hiện tại:', auth.user)
-
       const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
 
-      // 2. Xử lý logic Toggle
+      // Xử lý logic Toggle
       if (index > -1) {
         console.log('❌ [Debug] Hành động: BỎ THEO DÕI')
 
@@ -276,6 +273,7 @@ export const useMangaStore = defineStore('manga', {
             is_local: !!manga.isLocal,
             category_list: newManga.category || [],
             chapters_latest: chaptersToSave, // Lưu dữ liệu đã có
+            updated_at: manga.updatedAt,
           }
 
           console.log('🚀 Dữ liệu chuẩn bị gửi lên Supabase:', payload)
