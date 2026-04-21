@@ -53,7 +53,7 @@ const latestChapters = computed(() => {
     list[0].server_data && Array.isArray(list[0].server_data) ? list[0].server_data : list
 
   // Đảo ngược và cắt mảng
-  return [...rawChapters].reverse().slice(0, 3)
+  return [...rawChapters].reverse().slice(0, 1)
 })
 
 const goToChapter = (chap) => {
@@ -129,7 +129,7 @@ watch(
               Chương {{ chap.chapter_name }}
             </span>
 
-            <span v-if="index === 0" class="text-[9px] text-gray-500 font-medium shrink-0 ml-2">
+            <span v-if="index === 0" class="text-[9px] text-red-500 font-medium shrink-0 ml-2">
               {{ timeAgo(manga.updatedAt) }}
             </span>
           </div>
