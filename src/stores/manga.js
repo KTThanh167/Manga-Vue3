@@ -6,6 +6,7 @@ export const useMangaStore = defineStore('manga', {
   state: () => ({
     readingHistory: [],
     isFollowed: false,
+    lastReadChapter: null,
     categories: [
       { name: 'Tất cả', slug: '' },
       { name: 'Action', slug: 'action' },
@@ -119,6 +120,24 @@ export const useMangaStore = defineStore('manga', {
       } else {
         this.isFollowed = this.followedMangas.some((m) => m.slug === slug)
       }
+    },
+
+    async fetchLastRead(slug) {
+      const auth = useAuthStore()
+      if (!auth.user) return null
+
+      const { data, error } = await supabase
+        .from('reading_history')
+        .select('*')
+        .eq('user_id', auth.user.id)
+        .eq('manga_slug', slug)
+        .order('updated_at', { ascending: false })
+        .maybeSingle()
+
+      if (!error) {
+        this.lastReadChapter = data
+      }
+      return data
     },
 
     async toggleFollow(manga) {
