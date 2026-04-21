@@ -2,7 +2,7 @@
 import { useMangaStore } from '../../stores/manga'
 import { useRouter } from 'vue-router'
 
-defineProps({
+const props = defineProps({
   manga: Object,
   imageResources: String,
 })
@@ -10,12 +10,43 @@ defineProps({
 const mangaStore = useMangaStore()
 const router = useRouter()
 
-// Hàm để chuyển trang tìm kiếm theo thể loại
+// Hàm chuyển danh mục
 const goToCategory = (cat) => {
-  // Giả định route tìm kiếm của bạn là /search hoặc có query category
+  router.push({ path: '/search', query: { category: cat.slug } })
+}
+
+// Hàm "Đọc từ đầu"
+const startReading = () => {
+  if (!props.manga.chapters || props.manga.chapters.length === 0) {
+    alert('Truyện chưa có chương để đọc!')
+    return
+  }
+
+  // Logic lấy chương đầu tiên (Tùy cấu trúc API của bạn)
+  const firstChapter = props.manga.chapters[0].server_data.slice(-1)[0]
+
   router.push({
-    path: '/search',
-    query: { category: cat.slug },
+    name: 'ReadManga',
+    params: {
+      slug: props.manga.slug,
+      chapter: String(firstChapter.chapter_name),
+    },
+    query: { api: firstChapter.chapter_api_data },
+  })
+}
+
+// Hàm "Đọc tiếp"
+const continueReading = () => {
+  const history = mangaStore.lastReadChapter
+  if (!history) return
+
+  router.push({
+    name: 'ReadManga',
+    params: {
+      slug: props.manga.slug,
+      chapter: String(history.last_chapter_name),
+    },
+    query: { api: history.chapter_api_data },
   })
 }
 </script>
@@ -33,31 +64,34 @@ const goToCategory = (cat) => {
         />
       </div>
 
-      <button
-        @click="mangaStore.toggleFollow(manga)"
-        :class="[
-          'w-full mt-4 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2',
-          mangaStore.isFollowed
-            ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
-            : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100',
-        ]"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          :fill="mangaStore.isFollowed ? 'currentColor' : 'none'"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
+      <div class="flex flex-col gap-3 mt-4">
+        <button
+          @click="mangaStore.toggleFollow(manga)"
+          :class="[
+            'w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2',
+            mangaStore.isFollowed
+              ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100'
+              : 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100',
+          ]"
         >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-          />
-        </svg>
-        {{ mangaStore.isFollowed ? 'Đã Theo Dõi' : 'Theo Dõi' }}
-      </button>
+          {{ mangaStore.isFollowed ? 'Đã Theo Dõi' : 'Theo Dõi' }}
+        </button>
+
+        <button
+          v-if="mangaStore.lastReadChapter"
+          @click="continueReading"
+          class="w-full py-3 rounded-xl font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
+        >
+          Đọc tiếp
+        </button>
+
+        <button
+          @click="startReading"
+          class="w-full py-3 rounded-xl font-bold border-2 border-gray-200 text-gray-700 hover:bg-gray-50 transition"
+        >
+          Đọc từ đầu
+        </button>
+      </div>
     </div>
 
     <div class="flex-1">

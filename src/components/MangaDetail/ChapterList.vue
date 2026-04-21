@@ -20,7 +20,7 @@ defineEmits(['readChapter'])
 
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         <div
-          v-for="chapter in server.server_data"
+          v-for="chapter in [...server.server_data].reverse()"
           :key="chapter.chapter_name"
           class="bg-white border border-gray-200 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all shadow-sm"
         >
