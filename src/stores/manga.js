@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabaseClient'
 import { useAuthStore } from './auth'
+import axios from 'axios'
 
 export const useMangaStore = defineStore('manga', {
   state: () => ({
@@ -152,53 +153,70 @@ export const useMangaStore = defineStore('manga', {
     // Hàm này sẽ được gọi khi người dùng đăng nhập để đồng bộ bookmark từ DB về Local
     async loadBookmarks() {
       const auth = useAuthStore()
-      if (!auth.user) return
+      // 1. Lấy user trực tiếp từ Supabase Auth
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-      // 1. Fetch từ Database
-      const { data, error } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', auth.user.id)
+      if (user) {
+        // 2. Fetch từ Database
+        const { data, error } = await supabase.from('bookmarks').select('*').eq('user_id', user.id)
 
-      if (error) {
-        console.error('Lỗi khi fetch bookmark:', error)
-        return
+        if (error) {
+          console.error('Lỗi khi fetch bookmark:', error)
+        } else if (data && data.length > 0) {
+          // Nếu có dữ liệu từ DB, đè vào mảng Local
+          this.followedMangas = data.map((item) => ({
+            ...item,
+            name: item.manga_name,
+            slug: item.manga_slug,
+            thumb_url: item.manga_thumb,
+            isLocal: item.is_local,
+            category: item.category_list,
+            chaptersLatest: item.chapters_latest || [],
+          }))
+        }
       }
 
-      // 2. CHỈ ghi đè nếu Database thực sự có dữ liệu
-      if (data && data.length > 0) {
-        this.followedMangas = data.map((item) => ({
-          ...item,
-          name: item.manga_name,
-          slug: item.manga_slug,
-          thumb_url: item.manga_thumb,
-          isLocal: item.is_local,
-          category: item.category_list,
-          chaptersLatest: item.chapters_latest || [],
-        }))
-
-        // Đồng bộ lại vào LocalStorage sau khi fetch từ DB thành công
+      // 3. UPDATE CHƯƠNG MỚI (Làm tươi dữ liệu)
+      // Dù dữ liệu từ DB hay từ LocalStorage, ta vẫn cập nhật lại chapter mới nhất
+      if (this.followedMangas.length > 0) {
+        this.followedMangas = await Promise.all(
+          this.followedMangas.map(async (manga) => {
+            try {
+              const res = await axios.get(
+                `https://otruyenapi.com/v1/api/truyen-tranh/${manga.slug}`,
+              )
+              if (res.data?.data?.item?.chaptersLatest) {
+                return { ...manga, chaptersLatest: res.data.data.item.chaptersLatest }
+              }
+            } catch (err) {
+              console.warn(`Không cập nhật được chương mới cho ${manga.slug}`)
+            }
+            return manga // Trả về manga cũ nếu API lỗi
+          }),
+        )
+        // Lưu lại bản cập nhật nhất vào LocalStorage
         localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
-      } else {
-        // Nếu DB rỗng, có thể là do user mới hoặc lỗi đồng bộ.
-        // Chúng ta không nên xóa trắng danh sách hiện có mà chỉ nên cảnh báo hoặc giữ nguyên.
-        console.warn('Dữ liệu bookmark từ DB trống, giữ nguyên dữ liệu LocalStorage')
       }
     },
 
     async toggleFollow(manga) {
       const auth = useAuthStore()
 
-      // 1. Tìm vị trí truyện trong mảng Local
+      // 1. Kiểm tra đầu vào
+      console.log('🔍 [Debug] Bắt đầu Toggle:', manga.name)
+      console.log('🔍 [Debug] User hiện tại:', auth.user)
+
       const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
 
       // 2. Xử lý logic Toggle
       if (index > -1) {
-        // --- TRƯỜNG HỢP: BỎ THEO DÕI ---
+        console.log('❌ [Debug] Hành động: BỎ THEO DÕI')
+
         this.followedMangas.splice(index, 1)
         this.isFollowed = false
 
-        // Xóa khỏi DB (nếu đã đăng nhập)
         if (auth.user) {
           const { error } = await supabase
             .from('bookmarks')
@@ -206,41 +224,73 @@ export const useMangaStore = defineStore('manga', {
             .eq('user_id', auth.user.id)
             .eq('manga_slug', manga.slug)
 
-          if (error) console.error('Lỗi khi xóa bookmark:', error.message)
+          if (error) console.error('❌ [Error] Lỗi khi xóa bookmark:', error.message)
+          else console.log('✅ [Debug] Xóa bookmark thành công')
         }
       } else {
-        // --- TRƯỜNG HỢP: THEO DÕI THÊM ---
+        console.log('✅ [Debug] Hành động: THEO DÕI MỚI')
+
+        // --- CƠ CHẾ TỰ BỔ SUNG DỮ LIỆU ---
+        let chaptersToSave = manga.chaptersLatest || []
+
+        if (chaptersToSave.length === 0) {
+          console.log('⚠️ Dữ liệu chương bị trống, đang fetch lại từ API...')
+          try {
+            const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${manga.slug}`)
+
+            // LOG ĐỂ XEM DỮ LIỆU TRẢ VỀ CÓ GÌ
+            console.log('🔍 [Debug] Dữ liệu từ API:', res.data?.data?.item)
+
+            const apiChapters =
+              res.data?.data?.item?.chaptersLatest || res.data?.data?.item?.chapters || []
+
+            if (apiChapters.length > 0) {
+              chaptersToSave = apiChapters
+              console.log('✅ Fetch thành công, đã gán được:', chaptersToSave.length, 'chương')
+            } else {
+              console.warn('⚠️ API trả về nhưng không tìm thấy mảng chương nào!')
+            }
+          } catch (err) {
+            console.error('❌ Lỗi fetch lại chương:', err)
+          }
+        }
+
+        console.log('🚀 [Debug] Giá trị chaptersToSave trước khi lưu:', chaptersToSave)
+
         const newManga = {
           ...manga,
           isLocal: !!manga.isLocal,
           category: manga.category ? [manga.category[0]] : [],
-          chaptersLatest: manga.chaptersLatest || [],
+          chaptersLatest: chaptersToSave,
         }
 
         this.followedMangas.unshift(newManga)
         this.isFollowed = true
 
-        // Thêm vào DB (nếu đã đăng nhập)
         if (auth.user) {
-          // Dùng upsert để tránh lỗi 409 Conflict
-          const { error } = await supabase.from('bookmarks').upsert(
-            {
-              user_id: auth.user.id,
-              manga_slug: manga.slug,
-              manga_name: manga.name,
-              manga_thumb: manga.thumb_url,
-              is_local: !!manga.isLocal, // Đảm bảo cột is_local đã tạo trong DB
-              category_list: newManga.category || [],
-              chapters_latest: manga.chaptersLatest || [],
-            },
-            { onConflict: 'user_id, manga_slug' },
-          )
+          const payload = {
+            user_id: auth.user.id,
+            manga_slug: manga.slug,
+            manga_name: manga.name,
+            manga_thumb: manga.thumb_url,
+            is_local: !!manga.isLocal,
+            category_list: newManga.category || [],
+            chapters_latest: chaptersToSave, // Lưu dữ liệu đã có
+          }
 
-          if (error) console.error('Lỗi khi thêm bookmark:', error.message)
+          console.log('🚀 Dữ liệu chuẩn bị gửi lên Supabase:', payload)
+
+          const { error } = await supabase
+            .from('bookmarks')
+            .upsert(payload, { onConflict: 'user_id, manga_slug' })
+
+          if (error) console.error('❌ Lỗi khi thêm bookmark (Upsert):', error.message)
+          else console.log('✅ Upsert Supabase thành công')
+        } else {
+          console.warn('⚠️ [Warning] Không lưu được DB vì auth.user là null')
         }
       }
 
-      // 3. Luôn lưu vào LocalStorage để đồng bộ
       localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
     },
   },
