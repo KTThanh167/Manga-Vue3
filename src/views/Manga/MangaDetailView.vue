@@ -5,44 +5,49 @@ import axios from 'axios'
 import { supabase } from '@/lib/supabaseClient'
 import MangaInfo from '@/components/MangaDetail/MangaInfo.vue'
 import ChapterList from '@/components/MangaDetail/ChapterList.vue'
+import { useMangaStore } from '@/stores/manga'
 
 const route = useRoute()
 const manga = ref(null)
 const loading = ref(true)
+const mangaStore = useMangaStore()
 
 const fetchMangaDetail = async () => {
   loading.value = true
   const slug = route.params.slug
-  // const isLocalParam = route.query.isLocal === 'true'
+  const isLocal = route.query.isLocal === 'true'
 
   try {
-    // 1. Thử fetch Supabase trước (vì slug local là duy nhất)
-    const { data: localData, error: localErr } = await supabase
-      .from('mangas')
-      .select('*')
-      .eq('slug', slug)
-      .maybeSingle()
-
-    if (!localErr && localData) {
-      // Nếu tìm thấy trong Supabase -> Đây là truyện nội bộ
-      manga.value = {
-        ...localData,
-        name: localData.title,
-        thumb_url: localData.thumbnail_url,
-        isLocal: true,
-        chapters: [],
+    // 1. Fetch chi tiết truyện (Local hoặc API)
+    if (isLocal) {
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle()
+      if (error) throw error
+      if (data) {
+        manga.value = {
+          ...data,
+          name: data.title,
+          thumb_url: data.thumbnail_url,
+          isLocal: true,
+          chapters: [],
+        }
       }
     } else {
-      // 2. Nếu không có trong Supabase -> Fetch Otruyen
-      try {
-        const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`)
-        manga.value = res.data.data.item
-      } catch (err) {
-        console.error('Không tìm thấy truyện ở cả nguồn Local và API', err)
-      }
+      const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`)
+      manga.value = res.data.data.item
     }
+
+    // --- ĐỒNG BỘ TRẠNG THÁI ---
+    if (manga.value) {
+      await mangaStore.checkFollowStatus(slug)
+      await mangaStore.fetchLastRead(slug)
+    }
+    // ------------------------------------------
   } catch (err) {
-    console.error('Lỗi load truyện:', err)
+    console.error('Lỗi load chi tiết:', err)
   } finally {
     loading.value = false
   }
