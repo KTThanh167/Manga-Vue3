@@ -95,14 +95,14 @@ const continueReading = () => {
     </div>
 
     <div class="flex-1">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ manga.name }}</h1>
+      <h1 class="text-3xl font-bold text-indigo-600 mb-2">{{ manga.name }}</h1>
       <p class="text-gray-500 mb-6 italic">{{ manga.origin_name?.[0] }}</p>
 
       <div class="grid grid-cols-2 gap-4 mb-6 text-sm">
         <div class="flex items-center gap-2">
           <span class="font-bold text-indigo-600">Tình trạng:</span>
-          <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-md font-semibold">{{
-            manga.status
+          <span class="bg-blue-50 text-gray-700 px-2 py-0.5 rounded-md font-semibold">{{
+            manga.status === 'completed' ? 'Hoàn thành' : 'Đang tiến hành'
           }}</span>
         </div>
         <div class="flex items-center gap-2">
