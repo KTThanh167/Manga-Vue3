@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { useHomeStore } from '../../stores/home'
 import { useRouter } from 'vue-router'
 
@@ -9,8 +9,6 @@ const props = defineProps({
     required: true,
   },
 })
-
-console.log('Card nhận được manga:', props.manga)
 
 const homeStore = useHomeStore()
 const router = useRouter()
@@ -84,14 +82,6 @@ const timeAgo = (dateString) => {
   if (diff < 86400) return Math.floor(diff / 3600) + ' giờ trước'
   return Math.floor(diff / 86400) + ' ngày trước'
 }
-
-watch(
-  () => props.manga,
-  (newVal) => {
-    console.log('🔍 Data nhận được tại MangaCard:', newVal)
-  },
-  { immediate: true },
-)
 </script>
 
 <template>

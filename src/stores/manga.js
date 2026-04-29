@@ -4,6 +4,7 @@ import { useAuthStore } from './auth'
 import axios from 'axios'
 
 export const useMangaStore = defineStore('manga', {
+  //STATE
   state: () => ({
     readingHistory: [],
     isFollowed: false,
@@ -61,6 +62,21 @@ export const useMangaStore = defineStore('manga', {
     followedMangas: JSON.parse(localStorage.getItem('manga_followed')) || [],
   }),
 
+  // GETTERS
+  getters: {
+    sortedFollowedMangas: (state) => {
+      // Copy mảng để không ảnh hưởng trực tiếp đến state gốc
+      return [...state.followedMangas].sort((a, b) => {
+        const dateA = new Date(a.updatedAt || 0) // Nếu chưa có updatedAt thì coi như thời gian cũ nhất
+        const dateB = new Date(b.updatedAt || 0)
+
+        // Sắp xếp giảm dần (Mới nhất lên đầu)
+        return dateB - dateA
+      })
+    },
+  },
+
+  // ACTIONS
   actions: {
     // 1. Lịch sử đọc
     async recordReadingHistory(manga, chapter) {
