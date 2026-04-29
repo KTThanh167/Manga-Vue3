@@ -40,7 +40,11 @@ onMounted(async () => {
       v-if="mangaStore.followedMangas.length > 0"
       class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
     >
-      <MangaCard v-for="manga in mangaStore.followedMangas" :key="manga.slug" :manga="manga" />
+      <MangaCard
+        v-for="manga in mangaStore.sortedFollowedMangas"
+        :key="manga.slug"
+        :manga="manga"
+      />
     </div>
 
     <div
