@@ -1,56 +1,52 @@
 <template>
   <div class="min-h-screen bg-gray-100">
+    <!-- Header giữ cố định -->
     <AdminHeader :username="userProfile?.username" @logout="handleLogout" />
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div class="px-4 py-6 sm:px-0">
+        <!-- Khu vực Stats Card: Bây giờ đóng vai trò như các phím tắt điều hướng -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Tổng User"
             :value="stats.totalUsers"
             icon="👥"
             colorClass="bg-blue-500"
-            @click="showSection = 'users'"
+            @click="router.push('/admin/users')"
           />
           <StatCard
             title="Tổng Truyện"
             :value="stats.totalMangas"
             icon="📚"
             colorClass="bg-green-500"
-            @click="showSection = 'mangas'"
+            @click="router.push('/admin/manga')"
           />
           <StatCard
             title="Lượt Đọc"
             :value="stats.totalReads"
             icon="📖"
             colorClass="bg-purple-500"
-            @click="showSection = 'reads'"
+            @click="router.push('/admin/dashboard')"
           />
           <StatCard
             title="Đánh Giá"
             :value="stats.totalRatings"
             icon="⭐"
             colorClass="bg-yellow-500"
-            @click="showSection = 'ratings'"
+            @click="router.push('/admin/dashboard')"
           />
         </div>
 
-        <QuickActions @changeSection="(section) => (showSection = section)" />
+        <!-- Thanh hành động nhanh -->
+        <QuickActions @changeSection="navigateToSection" />
 
+        <!-- KHU VỰC QUAN TRỌNG NHẤT: Nội dung thay đổi theo URL -->
         <div class="mt-8">
-          <UserManagement v-if="showSection === 'users'" />
-          <MangaManagement v-if="showSection === 'mangas'" />
-          <LocalMangaManagement v-if="showSection === 'local_mangas'" />
-
-          <div v-else-if="showSection === 'reports'" class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Báo Cáo & Thống Kê</h3>
-            <p class="text-gray-500">Tính năng đang phát triển...</p>
-          </div>
-
-          <div v-else-if="showSection === 'settings'" class="bg-white shadow rounded-lg p-6">
-            <h3 class="text-lg font-medium text-gray-900 mb-4">Cài Đặt Hệ Thống</h3>
-            <p class="text-gray-500">Tính năng đang phát triển...</p>
-          </div>
+          <router-view v-slot="{ Component }">
+            <transition name="fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </div>
       </div>
     </main>
@@ -63,22 +59,31 @@ import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 
-// Import components mới
+// Import Layout Components
 import AdminHeader from '@/components/Admin/AdminHeader.vue'
 import StatCard from '@/components/Admin/StatCard.vue'
 import QuickActions from '@/components/Admin/QuickActions.vue'
-import UserManagement from '@/components/Admin/UserManagement.vue'
-import MangaManagement from '@/components/Admin/MangaManagement.vue'
-import LocalMangaManagement from '@/components/Admin/LocalMangaManagement.vue'
 
 const router = useRouter()
 const userProfile = ref(null)
-const showSection = ref('users') // Mặc định hiện quản lý user
 const stats = ref({ totalUsers: 0, totalMangas: 0, totalReads: 0, totalRatings: 0 })
 
-// --- Các hàm Logic (giữ nguyên từ file cũ của bạn) ---
-const checkAdminAccess = async () => {
-  /* logic check admin của bạn */
+/**
+ * Điều hướng trang dựa trên event từ QuickActions
+ * Giúp đồng bộ URL và tránh mất trang khi Reload
+ */
+const navigateToSection = (section) => {
+  const routes = {
+    users: '/admin/users',
+    mangas: '/admin/manga',
+    local_mangas: '/admin/local-manga',
+    reports: '/admin/dashboard',
+    settings: '/admin/dashboard',
+  }
+
+  if (routes[section]) {
+    router.push(routes[section])
+  }
 }
 
 const fetchStats = async () => {
@@ -87,7 +92,6 @@ const fetchStats = async () => {
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('reading_history').select('*', { count: 'exact', head: true }),
       axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1'),
-      // Lấy thêm số lượng truyện nội bộ từ Supabase
       supabase.from('local_mangas').select('*', { count: 'exact', head: true }),
     ])
 
@@ -96,12 +100,23 @@ const fetchStats = async () => {
 
     stats.value = {
       totalUsers: usersCount.count || 0,
-      totalMangas: totalApiMangas + totalLocalMangas, // Cộng dồn cả 2 nguồn
+      totalMangas: totalApiMangas + totalLocalMangas,
       totalReads: readsCount.count || 0,
       totalRatings: 0,
     }
   } catch (err) {
     console.error('Lỗi khi lấy dữ liệu thống kê:', err)
+  }
+}
+
+const checkAdminAccess = async () => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    userProfile.value = {
+      username: user.user_metadata?.full_name || user.email,
+    }
   }
 }
 
@@ -115,3 +130,16 @@ onMounted(async () => {
   await fetchStats()
 })
 </script>
+
+<style scoped>
+/* Hiệu ứng chuyển tab mượt mà */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>
