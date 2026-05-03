@@ -40,7 +40,7 @@
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
               >
-                Số Chapter
+                Trạng Thái
               </th>
               <th
                 class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -73,8 +73,15 @@
                 {{ manga.slug }}
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  {{ manga.chapters?.[0]?.server_data?.length || 0 }} chap
+                <span
+                  :class="
+                    manga.status === 'ongoing'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  "
+                  class="px-2 py-1 rounded-full text-xs font-medium"
+                >
+                  {{ manga.status === 'ongoing' ? 'Đang ra' : 'Hoàn thành' }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -127,7 +134,6 @@ const totalPages = ref(0)
 
 const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
-// Lấy danh sách truyện từ API external
 const fetchMangas = async (page = 1) => {
   loading.value = true
   try {
@@ -138,8 +144,19 @@ const fetchMangas = async (page = 1) => {
 
     if (data.status === 'success') {
       mangas.value = data.data.items || []
-      totalItems.value = data.data.total || mangas.value.length
-      totalPages.value = Math.ceil(totalItems.value / itemsPerPage.value)
+
+      const pagination = data.data.params?.pagination
+
+      // Lấy tổng số truyện
+      totalItems.value = pagination?.totalItems || 0
+
+      // Lấy số truyện trên mỗi trang từ API (trường hợp này là 24)
+      const perPage = pagination?.totalItemsPerPage || itemsPerPage.value
+
+      // TÍNH TOÁN SỐ TRANG THỦ CÔNG
+      totalPages.value = Math.ceil(totalItems.value / perPage)
+
+      currentPage.value = page
     }
   } catch (error) {
     console.error('Error fetching mangas:', error)
@@ -149,12 +166,11 @@ const fetchMangas = async (page = 1) => {
   }
 }
 
-// Refresh danh sách truyện
 const refreshMangas = () => {
-  fetchMangas(currentPage.value)
+  currentPage.value = 1 // Reset về trang 1 khi làm mới
+  fetchMangas(1)
 }
 
-// Chuyển trang
 const goToPage = (page) => {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page
@@ -162,7 +178,6 @@ const goToPage = (page) => {
   }
 }
 
-// Format date
 const formatDate = (dateString) => {
   if (!dateString) return 'N/A'
   return new Date(dateString).toLocaleDateString('vi-VN')
@@ -172,8 +187,5 @@ onMounted(() => {
   fetchMangas()
 })
 
-// Expose functions for parent component
-defineExpose({
-  refreshMangas,
-})
+defineExpose({ refreshMangas })
 </script>
