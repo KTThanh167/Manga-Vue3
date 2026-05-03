@@ -40,10 +40,49 @@ const router = createRouter({
           component: () => import('@/views/User/RecentReading.vue'),
         },
         {
-          path: 'admin/dashboard',
-          name: 'admin-dashboard',
+          path: '/admin',
+
           component: () => import('@/views/Admin/AdminDashboard.vue'),
-          meta: { requiresAdmin: true },
+          meta: { requiresAuth: true, isAdmin: true },
+          children: [
+            {
+              path: 'dashboard',
+              name: 'AdminStats',
+
+              component: () => import('@/components/Admin/StatCard.vue'),
+            },
+            {
+              path: 'users',
+              name: 'AdminUsers',
+              component: () => import('@/components/Admin/UserManagement.vue'),
+            },
+            {
+              path: 'manga',
+              name: 'AdminManga',
+              component: () => import('@/components/Admin/MangaManagement.vue'),
+            },
+            {
+              path: 'local-manga',
+              name: 'AdminLocalManga',
+              component: () => import('@/components/Admin/LocalMangaManagement.vue'),
+            },
+
+            {
+              path: 'manga/edit/:id?',
+              name: 'MangaEditor',
+              component: () => import('../views/Admin/MangaEditorView.vue'),
+            },
+            {
+              path: 'manga/upload',
+              name: 'MangaUpload',
+              component: () => import('../views/Admin/MangaUploadView.vue'),
+            },
+
+            {
+              path: '',
+              redirect: { name: 'AdminUsers' },
+            },
+          ],
         },
         {
           path: 'bookmark',
@@ -64,16 +103,6 @@ const router = createRouter({
           path: '/user-comics',
           name: 'UserComics',
           component: () => import('@/views/Manga/UserComicsView.vue'),
-        },
-        {
-          path: '/admin/manga/edit/:id?',
-          name: 'MangaEditor',
-          component: () => import('../views/Admin/MangaEditorView.vue'),
-        },
-        {
-          path: '/admin/manga/upload',
-          name: 'MangaUpload',
-          component: () => import('../views/Admin/MangaUploadView.vue'),
         },
       ],
     },
