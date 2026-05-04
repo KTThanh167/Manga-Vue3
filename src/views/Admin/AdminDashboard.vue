@@ -88,15 +88,15 @@ const navigateToSection = (section) => {
 
 const fetchStats = async () => {
   try {
-    const [usersCount, readsCount, otruyenRes, localMangas] = await Promise.all([
+    const [usersCount, readsCount, otruyenRes, mangas] = await Promise.all([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('reading_history').select('*', { count: 'exact', head: true }),
       axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1'),
-      supabase.from('local_mangas').select('*', { count: 'exact', head: true }),
+      supabase.from('mangas').select('*', { count: 'exact', head: true }),
     ])
 
     const totalApiMangas = otruyenRes.data?.data?.params?.pagination?.totalItems || 0
-    const totalLocalMangas = localMangas.count || 0
+    const totalLocalMangas = mangas.count || 0
 
     stats.value = {
       totalUsers: usersCount.count || 0,

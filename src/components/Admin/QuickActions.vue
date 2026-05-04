@@ -13,7 +13,7 @@ defineEmits(['changeSection'])
         >
           👥 Quản Lý User
         </button>
-        <button
+        <!-- <button
           @click="$emit('changeSection', 'reports')"
           class="bg-red-600 hover:bg-red-700 text-white px-4 py-3 rounded-md text-sm font-medium transition"
         >
@@ -24,7 +24,7 @@ defineEmits(['changeSection'])
           class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-md text-sm font-medium transition"
         >
           ⚙️ Cài Đặt
-        </button>
+        </button> -->
         <button
           @click="$emit('changeSection', 'local_mangas')"
           class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-md text-sm font-medium transition"

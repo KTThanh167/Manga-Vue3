@@ -54,36 +54,77 @@ const saveReadingHistory = async (data) => {
 const fetchChapterData = async () => {
   loading.value = true
   error.value = null
-  window.scrollTo(0, 0)
+  const isLocal = route.query.isLocal === 'true'
+  const slug = route.params.slug
+  const chapterNum = route.params.chapter
+  scrollToTop()
 
   try {
-    let apiUrl = route.query.api
+    if (isLocal) {
+      // BƯỚC 1: Lấy ID của truyện dựa trên slug từ bảng mangas
+      const { data: mangaData, error: mangaError } = await supabase
+        .from('mangas')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle()
 
-    // Xử lý fallback nếu thiếu query api
-    if (apiUrl && !apiUrl.startsWith('http')) {
-      apiUrl = `https://otruyenapi.com${apiUrl}`
-    }
-    if (!apiUrl) {
-      apiUrl = `https://otruyenapi.com/v1/api/chuong/${route.params.slug}-chuong-${route.params.chapter}`
-    }
+      if (mangaError || !mangaData) throw new Error('Không tìm thấy dữ liệu truyện')
 
-    const response = await axios.get(apiUrl)
-    if (response.data?.status === 'success') {
-      const data = response.data.data
-      chapterData.value = data.item
+      // BƯỚC 2: Truy vấn lồng để lấy Chapter và danh sách trang ảnh (chapter_pages)
+      const { data, error: dbError } = await supabase
+        .from('chapters')
+        .select(
+          `
+          *,
+          mangas (title),
+          chapter_pages (image_url, page_order)
+        `,
+        )
+        .eq('manga_id', mangaData.id) // Dùng ID vừa lấy được ở trên
+        .eq('chapter_number', chapterNum)
+        .maybeSingle()
 
-      const domain = data.domain_cdn
-      const path = data.item.chapter_path
+      if (dbError) throw dbError
+      if (!data) throw new Error('Chương này hiện chưa có dữ liệu ảnh.')
 
-      // Map danh sách ảnh
-      images.value = data.item.chapter_image.map((img) => `${domain}/${path}/${img.image_file}`)
+      // BƯỚC 3: Gán thông tin hiển thị
+      chapterData.value = {
+        comic_name: data.mangas?.title || 'Truyện nội bộ',
+        chapter_name: data.chapter_number,
+      }
 
-      // GỌI LƯU LỊCH SỬ SAU KHI FETCH THÀNH CÔNG
-      await saveReadingHistory(data.item)
+      // BƯỚC 4: Xử lý danh sách ảnh từ bảng chapter_pages
+      if (data.chapter_pages && data.chapter_pages.length > 0) {
+        const sortedPages = [...data.chapter_pages].sort((a, b) => a.page_order - b.page_order)
+        images.value = sortedPages.map((page) => page.image_url)
+      } else {
+        images.value = []
+      }
+
+      await saveReadingHistory(chapterData.value)
+    } else {
+      // --- LOGIC LẤY TRUYỆN OTRUYEN (GIỮ NGUYÊN) ---
+      let apiUrl = route.query.api
+      if (apiUrl && !apiUrl.startsWith('http')) {
+        apiUrl = `https://otruyenapi.com${apiUrl}`
+      }
+      if (!apiUrl) {
+        apiUrl = `https://otruyenapi.com/v1/api/chuong/${slug}-chuong-${chapterNum}`
+      }
+
+      const response = await axios.get(apiUrl)
+      if (response.data?.status === 'success') {
+        const data = response.data.data
+        chapterData.value = data.item
+        const domain = data.domain_cdn
+        const path = data.item.chapter_path
+        images.value = data.item.chapter_image.map((img) => `${domain}/${path}/${img.image_file}`)
+        await saveReadingHistory(data.item)
+      }
     }
   } catch (err) {
-    error.value = 'Chương này đang được cập nhật hoặc link đã thay đổi.'
-    console.error(err)
+    error.value = err.message || 'Chương này đang được cập nhật hoặc link đã thay đổi.'
+    console.error('Chi tiết lỗi:', err)
   } finally {
     loading.value = false
   }
@@ -91,33 +132,69 @@ const fetchChapterData = async () => {
 
 // --- ĐIỀU HƯỚNG CHƯƠNG ---
 const changeChapter = async (offset) => {
+  const isLocal = route.query.isLocal === 'true'
   const currentNum = parseInt(route.params.chapter)
   const nextChapterNum = currentNum + offset
+  scrollToTop()
+
+  // Không cho phép số chương nhỏ hơn 1
   if (nextChapterNum <= 0) return
 
   try {
     loading.value = true
-    const listRes = await axios.get(
-      `https://otruyenapi.com/v1/api/truyen-tranh/${route.params.slug}`,
-    )
 
-    if (listRes.data.status === 'success') {
-      const chapters = listRes.data.data.item.chapters[0].server_data
-      const nextChapter = chapters.find((ch) => parseInt(ch.chapter_name) === nextChapterNum)
+    if (isLocal) {
+      // --- XỬ LÝ TRUYỆN NỘI BỘ (SUPABASE) ---
+      const { data, error: dbError } = await supabase
+        .from('chapters')
+        .select('id, chapter_number')
+        .eq('manga_slug', route.params.slug)
+        .eq('chapter_number', nextChapterNum)
+        .maybeSingle()
 
-      if (nextChapter?.chapter_api_data) {
+      if (dbError) throw dbError
+
+      if (data) {
+        // Chuyển trang và giữ lại query isLocal=true
         router.push({
           name: 'ReadManga',
-          params: { slug: route.params.slug, chapter: nextChapterNum },
-          query: { api: nextChapter.chapter_api_data },
+          params: {
+            slug: route.params.slug,
+            chapter: nextChapterNum,
+          },
+          query: { isLocal: 'true' },
         })
       } else {
-        alert('Chương tiếp theo chưa được cập nhật!')
+        alert(offset > 0 ? 'Bạn đã đọc đến chương mới nhất!' : 'Đây là chương đầu tiên!')
+      }
+    } else {
+      // --- XỬ LÝ TRUYỆN OTRUYEN (API) ---
+      const listRes = await axios.get(
+        `https://otruyenapi.com/v1/api/truyen-tranh/${route.params.slug}`,
+      )
+
+      if (listRes.data.status === 'success') {
+        // Lấy danh sách chương từ server đầu tiên
+        const chapters = listRes.data.data.item.chapters[0].server_data
+        const nextChapter = chapters.find((ch) => parseInt(ch.chapter_name) === nextChapterNum)
+
+        if (nextChapter?.chapter_api_data) {
+          router.push({
+            name: 'ReadManga',
+            params: {
+              slug: route.params.slug,
+              chapter: nextChapterNum,
+            },
+            query: { api: nextChapter.chapter_api_data },
+          })
+        } else {
+          alert('Chương này chưa được cập nhật trên hệ thống API!')
+        }
       }
     }
   } catch (err) {
-    alert('Không thể lấy dữ liệu chương tiếp theo')
-    console.error(err)
+    console.error('Lỗi khi chuyển chương:', err)
+    alert('Có lỗi xảy ra khi tìm chương tiếp theo.')
   } finally {
     loading.value = false
   }
@@ -154,7 +231,12 @@ watch(
       <div v-else-if="error" class="text-center py-40 px-6">
         <p class="text-red-400 mb-4">{{ error }}</p>
         <button
-          @click="router.push(`/truyen/${route.params.slug}`)"
+          @click="
+            router.push({
+              path: `/truyen/${route.params.slug}`,
+              query: { isLocal: route.query.isLocal },
+            })
+          "
           class="bg-indigo-600 px-6 py-2 rounded-lg text-white font-bold"
         >
           Về trang chi tiết
