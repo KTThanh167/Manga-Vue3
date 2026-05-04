@@ -84,6 +84,12 @@ const router = createRouter({
               props: true,
             },
             {
+              path: '/admin/manga/edit-chapter/:chapterId',
+              name: 'EditChapter',
+              component: () => import('@/views/Admin/EditChaptersView.vue'),
+              props: true,
+            },
+            {
               path: '',
               redirect: { name: 'AdminUsers' },
             },
