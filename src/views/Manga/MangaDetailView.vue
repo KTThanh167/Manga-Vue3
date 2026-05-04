@@ -18,20 +18,47 @@ const fetchMangaDetail = async () => {
   const isLocal = route.query.isLocal === 'true'
 
   try {
-    // 1. Fetch dữ liệu truyện trước
     if (isLocal) {
-      const { data, error } = await supabase
+      // 1. Lấy thông tin truyện từ bảng mangas
+      const { data: mangaData, error: mangaError } = await supabase
         .from('mangas')
         .select('*')
         .eq('slug', slug)
         .maybeSingle()
-      if (error) throw error
-      manga.value = {
-        ...data,
-        name: data.title,
-        thumb_url: data.thumbnail_url,
-        isLocal: true,
-        chapters: [],
+
+      if (mangaError) throw mangaError
+
+      if (mangaData) {
+        // 2. Lấy danh sách chương từ bảng chapters dựa trên manga_id
+        const { data: chaptersData, error: chaptersError } = await supabase
+          .from('chapters')
+          .select('*')
+          .eq('manga_id', mangaData.id) // Giả định bảng chapters có cột manga_id
+          .order('chapter_number', { ascending: false }) // Sắp xếp chương mới nhất lên đầu
+
+        if (chaptersError) console.error('Lỗi lấy chương:', chaptersError)
+
+        manga.value = {
+          ...mangaData,
+          name: mangaData.title,
+          content: mangaData.description || 'Chưa có mô tả.',
+          thumb_url: mangaData.thumbnail_url,
+          isLocal: true,
+          // Đóng gói vào cấu trúc server để ChapterList.vue hiểu được
+          chapters: [
+            {
+              server_name: 'Nội bộ',
+              server_data: chaptersData
+                ? chaptersData.map((c) => ({
+                    chapter_name: c.chapter_number.toString(),
+                    chapter_title: c.title || '',
+                    chapter_api_data: '',
+                    isLocal: true,
+                  }))
+                : [],
+            },
+          ],
+        }
       }
     } else {
       const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`)
