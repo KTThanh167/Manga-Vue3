@@ -11,8 +11,11 @@ const isEdit = !!route.params.id
 const loading = ref(false)
 const uploading = ref(false)
 
-const pageLoading = ref(false) // Dùng cho onMounted
-const submitLoading = ref(false) // Dùng cho nút Lưu
+const pageLoading = ref(false)
+const submitLoading = ref(false)
+
+const chapters = ref([])
+
 const form = ref({
   name: '',
   slug: '',
@@ -39,37 +42,6 @@ watch(
     if (!isEdit) form.value.slug = generateSlug(newName)
   },
 )
-
-// Load dữ liệu
-onMounted(async () => {
-  if (isEdit) {
-    pageLoading.value = true // Bật loading trang
-    try {
-      const { data, error } = await supabase
-        .from('mangas')
-        .select('*')
-        .eq('id', route.params.id)
-        .single()
-
-      if (data) {
-        form.value = {
-          name: data.title,
-          slug: data.slug,
-          author: data.author,
-          status: data.status,
-          content: data.description,
-          thumb_url: data.thumbnail_url,
-        }
-      }
-      if (error) throw error
-    } catch (err) {
-      console.error('Lỗi fetch:', err)
-      message.error('Không tìm thấy dữ liệu truyện')
-    } finally {
-      pageLoading.value = false // Chắc chắn tắt loading trang
-    }
-  }
-})
 
 // Upload ảnh
 const handleFileUpload = async (event) => {
@@ -136,53 +108,238 @@ const saveManga = async () => {
     loading.value = false
   }
 }
+
+//Hàm load danh sách chương
+const fetchChapters = async () => {
+  const { data, error } = await supabase
+    .from('chapters')
+    .select('*')
+    .eq('manga_id', route.params.id)
+    .order('chapter_number', { ascending: false })
+
+  if (data) chapters.value = data
+  if (error) console.error('Lỗi tải chương:', error.message)
+}
+
+//Hàm xóa chương
+const deleteChapter = async (chapterId) => {
+  if (!confirm('Bạn có chắc chắn muốn xóa chương này?')) return
+
+  try {
+    const { error } = await supabase.from('chapters').delete().eq('id', chapterId)
+    if (error) throw error
+    message.success('Xóa chương thành công')
+    fetchChapters() // Load lại danh sách
+  } catch (err) {
+    message.error('Lỗi khi xóa: ' + err.message)
+  }
+}
+
+// Load dữ liệu
+onMounted(async () => {
+  // Chỉ thực hiện fetch dữ liệu nếu đang ở chế độ chỉnh sửa (isEdit)
+  if (isEdit) {
+    const mangaId = route.params.id
+    pageLoading.value = true
+
+    try {
+      // Sử dụng Promise.all để chạy song song 2 câu lệnh fetch, giúp tối ưu tốc độ tải trang
+      const [mangaRes, chaptersRes] = await Promise.all([
+        // 1. Fetch thông tin chi tiết truyện
+        supabase.from('mangas').select('*').eq('id', mangaId).single(),
+
+        // 2. Fetch danh sách chương thuộc truyện này, sắp xếp chương mới nhất lên đầu
+        supabase
+          .from('chapters')
+          .select('*')
+          .eq('manga_id', mangaId)
+          .order('chapter_number', { ascending: false }),
+      ])
+
+      // Xử lý dữ liệu truyện
+      if (mangaRes.error) throw mangaRes.error
+      if (mangaRes.data) {
+        const d = mangaRes.data
+        form.value = {
+          name: d.title,
+          slug: d.slug,
+          author: d.author,
+          status: d.status,
+          content: d.description,
+          thumb_url: d.thumbnail_url,
+        }
+      }
+
+      // Xử lý dữ liệu danh sách chương
+      if (chaptersRes.error) {
+        console.error('Lỗi fetch chapters:', chaptersRes.error.message)
+      } else {
+        chapters.value = chaptersRes.data || []
+      }
+    } catch (err) {
+      console.error('Lỗi hệ thống khi fetch dữ liệu:', err)
+      message.error('Không tìm thấy dữ liệu truyện hoặc lỗi kết nối database')
+    } finally {
+      pageLoading.value = false
+    }
+  }
+})
 </script>
 
 <template>
   <div class="p-6">
-    <a-card :title="isEdit ? 'Chỉnh sửa truyện' : 'Thêm truyện mới'" class="max-w-4xl mx-auto">
+    <!-- 1. CARD THÔNG TIN TRUYỆN -->
+    <a-card
+      :title="isEdit ? 'Chỉnh sửa truyện' : 'Thêm truyện mới'"
+      class="max-w-4xl mx-auto mb-8 shadow-sm"
+      :loading="pageLoading"
+    >
       <a-form layout="vertical">
         <a-row :gutter="16">
-          <a-col :span="12"
-            ><a-form-item label="Tên truyện"><a-input v-model:value="form.name" /></a-form-item
-          ></a-col>
-          <a-col :span="12"
-            ><a-form-item label="Slug (URL)"><a-input v-model:value="form.slug" /></a-form-item
-          ></a-col>
+          <a-col :span="12">
+            <a-form-item label="Tên truyện">
+              <a-input v-model:value="form.name" placeholder="Nhập tên truyện..." />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Slug (URL)">
+              <a-input v-model:value="form.slug" placeholder="ten-truyen-tu-dong" />
+            </a-form-item>
+          </a-col>
         </a-row>
+
         <a-row :gutter="16">
-          <a-col :span="12"
-            ><a-form-item label="Tác giả"><a-input v-model:value="form.author" /></a-form-item
-          ></a-col>
-          <a-col :span="12"
-            ><a-form-item label="Trạng thái">
+          <a-col :span="12">
+            <a-form-item label="Tác giả">
+              <a-input v-model:value="form.author" placeholder="Tên tác giả..." />
+            </a-form-item>
+          </a-col>
+          <a-col :span="12">
+            <a-form-item label="Trạng thái">
               <a-select v-model:value="form.status">
                 <a-select-option value="ongoing">Đang ra</a-select-option>
                 <a-select-option value="completed">Hoàn thành</a-select-option>
               </a-select>
-            </a-form-item></a-col
-          >
+            </a-form-item>
+          </a-col>
         </a-row>
+
         <a-form-item label="Ảnh bìa">
-          <div class="flex items-center gap-4">
-            <img
-              v-if="form.thumb_url"
-              :src="form.thumb_url"
-              class="w-20 h-28 object-cover rounded border"
-            />
-            <input type="file" @change="handleFileUpload" />
+          <div class="flex items-start gap-4 p-3 border rounded-lg bg-gray-50">
+            <div v-if="form.thumb_url" class="relative group">
+              <img
+                :src="form.thumb_url"
+                class="w-24 h-32 object-cover rounded shadow-md border-2 border-white"
+              />
+            </div>
+            <div class="flex flex-col gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                @change="handleFileUpload"
+                class="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+              <p class="text-xs text-gray-500">Định dạng: JPG, PNG. Dung lượng tối đa 2MB.</p>
+              <div v-if="uploading" class="text-indigo-600 flex items-center gap-2">
+                <a-spin size="small" /> <span class="text-xs">Đang tải ảnh lên...</span>
+              </div>
+            </div>
           </div>
         </a-form-item>
-        <a-form-item label="Mô tả"
-          ><a-textarea v-model:value="form.content" :rows="4"
-        /></a-form-item>
-        <div class="flex justify-end gap-2">
-          <a-button @click="router.back()">Hủy</a-button>
-          <a-button type="primary" :loading="submitLoading" @click="saveManga">
-            Lưu truyện
+
+        <a-form-item label="Mô tả nội dung">
+          <a-textarea
+            v-model:value="form.content"
+            :rows="6"
+            placeholder="Viết tóm tắt nội dung truyện tại đây..."
+          />
+        </a-form-item>
+
+        <div class="flex justify-end gap-3 pt-4 border-t">
+          <a-button @click="router.back()">Hủy bỏ</a-button>
+          <a-button type="primary" :loading="submitLoading" @click="saveManga" size="large">
+            <template #icon v-if="!submitLoading"><save-outlined /></template>
+            {{ isEdit ? 'Cập nhật thông tin' : 'Tạo truyện mới' }}
           </a-button>
         </div>
       </a-form>
+    </a-card>
+
+    <!-- 2. CARD QUẢN LÝ DANH SÁCH CHƯƠNG (Chỉ hiện khi chỉnh sửa) -->
+    <a-card v-if="isEdit" class="max-w-4xl mx-auto shadow-sm">
+      <template #title>
+        <div class="flex items-center gap-2">
+          <span class="text-lg font-bold">Danh sách chương</span>
+          <a-badge :count="chapters.length" show-zero color="#4f46e5" />
+        </div>
+      </template>
+
+      <template #extra>
+        <a-button
+          type="primary"
+          @click="router.push(`/admin/manga/${route.params.id}/add-chapter`)"
+        >
+          Thêm chương mới
+        </a-button>
+      </template>
+
+      <!-- Bảng danh sách chương -->
+      <a-table :dataSource="chapters" :pagination="{ pageSize: 10 }" rowKey="id" size="middle">
+        <a-table-column
+          title="Số"
+          dataIndex="chapter_number"
+          key="chapter_number"
+          :width="80"
+          align="center"
+        >
+          <template #default="{ text }">
+            <span class="font-bold text-indigo-600">{{ text }}</span>
+          </template>
+        </a-table-column>
+
+        <a-table-column title="Tên chương" dataIndex="title" key="title">
+          <template #default="{ text }">
+            {{ text || '(Không có tiêu đề)' }}
+          </template>
+        </a-table-column>
+
+        <a-table-column title="Ngày đăng" dataIndex="created_at" key="created_at" :width="150">
+          <template #default="{ text }">
+            <span class="text-gray-500 text-xs">
+              {{ new Date(text).toLocaleDateString('vi-VN') }}
+            </span>
+          </template>
+        </a-table-column>
+
+        <a-table-column title="Thao tác" key="action" :width="180" align="right">
+          <template #default="{ record }">
+            <a-space>
+              <a-button size="small" @click="router.push(`/admin/manga/edit-chapter/${record.id}`)">
+                Sửa
+              </a-button>
+              <a-popconfirm
+                title="Xóa chương này sẽ mất dữ liệu ảnh liên quan. Bạn chắc chắn chứ?"
+                ok-text="Xóa luôn"
+                cancel-text="Hủy"
+                @confirm="deleteChapter(record.id)"
+              >
+                <a-button size="small" danger ghost>Xóa</a-button>
+              </a-popconfirm>
+            </a-space>
+          </template>
+        </a-table-column>
+      </a-table>
+
+      <!-- Thông báo nếu chưa có chương -->
+      <div
+        v-if="chapters.length === 0 && !pageLoading"
+        class="py-12 text-center border-2 border-dashed rounded-lg bg-gray-50"
+      >
+        <p class="text-gray-400 mb-4">Chưa có chương nào được tải lên cho bộ truyện này.</p>
+        <a-button type="dashed" @click="router.push(`/admin/manga/${route.params.id}/add-chapter`)">
+          Bắt đầu thêm chương đầu tiên
+        </a-button>
+      </div>
     </a-card>
   </div>
 </template>
