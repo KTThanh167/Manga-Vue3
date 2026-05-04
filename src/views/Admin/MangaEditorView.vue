@@ -10,6 +10,9 @@ const isEdit = !!route.params.id
 
 const loading = ref(false)
 const uploading = ref(false)
+
+const pageLoading = ref(false) // Dùng cho onMounted
+const submitLoading = ref(false) // Dùng cho nút Lưu
 const form = ref({
   name: '',
   slug: '',
@@ -40,26 +43,31 @@ watch(
 // Load dữ liệu
 onMounted(async () => {
   if (isEdit) {
-    loading.value = true
-    const { data, error } = await supabase
-      .from('mangas')
-      .select('*')
-      .eq('id', route.params.id)
-      .single()
+    pageLoading.value = true // Bật loading trang
+    try {
+      const { data, error } = await supabase
+        .from('mangas')
+        .select('*')
+        .eq('id', route.params.id)
+        .single()
 
-    if (data) {
-      // Map dữ liệu từ DB về Form
-      form.value = {
-        name: data.title,
-        slug: data.slug,
-        author: data.author,
-        status: data.status,
-        content: data.description,
-        thumb_url: data.thumbnail_url,
+      if (data) {
+        form.value = {
+          name: data.title,
+          slug: data.slug,
+          author: data.author,
+          status: data.status,
+          content: data.description,
+          thumb_url: data.thumbnail_url,
+        }
       }
+      if (error) throw error
+    } catch (err) {
+      console.error('Lỗi fetch:', err)
+      message.error('Không tìm thấy dữ liệu truyện')
+    } finally {
+      pageLoading.value = false // Chắc chắn tắt loading trang
     }
-    if (error) message.error('Lỗi tải dữ liệu')
-    loading.value = false
   }
 })
 
@@ -83,7 +91,12 @@ const handleFileUpload = async (event) => {
 
 // Lưu dữ liệu
 const saveManga = async () => {
-  loading.value = true
+  if (isEdit && !route.params.id) {
+    message.error('Không tìm thấy ID truyện để cập nhật!')
+    return
+  }
+
+  submitLoading.value = true
 
   const payload = {
     title: form.value.name,
@@ -95,16 +108,31 @@ const saveManga = async () => {
   }
 
   try {
+    let result
     if (isEdit) {
-      await supabase.from('mangas').update(payload).eq('id', route.params.id)
+      result = await supabase.from('mangas').update(payload).eq('id', route.params.id)
     } else {
-      await supabase.from('mangas').insert([payload])
+      result = await supabase.from('mangas').insert([payload])
     }
-    message.success('Lưu thành công!')
-    router.push('/admin/dashboard') // Đổi đường dẫn nếu cần
+
+    if (result.error) {
+      console.error('Lỗi Supabase:', result.error)
+      if (result.error.code === '23505') {
+        message.error('Lỗi: Slug đã tồn tại!')
+      } else {
+        message.error('Lỗi: ' + result.error.message)
+      }
+    } else {
+      message.success('Lưu thành công!')
+      setTimeout(() => {
+        router.push('/admin/local-manga')
+      }, 500)
+    }
   } catch (err) {
-    message.error('Lỗi lưu dữ liệu: ' + err.message)
+    console.error('Lỗi hệ thống:', err)
+    message.error('Lỗi hệ thống: ' + err.message)
   } finally {
+    // ĐẢM BẢO LUÔN TẮT LOADING Ở ĐÂY
     loading.value = false
   }
 }
@@ -150,7 +178,9 @@ const saveManga = async () => {
         /></a-form-item>
         <div class="flex justify-end gap-2">
           <a-button @click="router.back()">Hủy</a-button>
-          <a-button type="primary" :loading="loading" @click="saveManga">Lưu truyện</a-button>
+          <a-button type="primary" :loading="submitLoading" @click="saveManga">
+            Lưu truyện
+          </a-button>
         </div>
       </a-form>
     </a-card>
