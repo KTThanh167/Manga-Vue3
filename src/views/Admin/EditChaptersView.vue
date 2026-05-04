@@ -141,6 +141,14 @@ const beforeUpload = (file) => {
   fileList.value = [...fileList.value, file]
   return false
 }
+
+const handleRemove = (file) => {
+  // Lọc bỏ file được chọn ra khỏi danh sách hiện tại
+  fileList.value = fileList.value.filter((item) => item.uid !== file.uid)
+
+  // Thông báo nhẹ để Admin biết
+  message.info(`Đã tạm gỡ ${file.name}. Nhấn Lưu để áp dụng thay đổi.`)
+}
 </script>
 
 <template>
@@ -226,7 +234,7 @@ const beforeUpload = (file) => {
                   @click.stop="handleRemove(element)"
                   class="absolute top-1 right-1 z-10 w-6 h-6 flex items-center justify-center bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
                 >
-                  <delete-outlined class="text-[12px]" />
+                  X
                 </button>
 
                 <!-- Thumbnail Ảnh -->
