@@ -77,7 +77,12 @@ const router = createRouter({
               name: 'MangaUpload',
               component: () => import('../views/Admin/MangaUploadView.vue'),
             },
-
+            {
+              path: '/admin/manga/:mangaId/add-chapter',
+              name: 'AddChapter',
+              component: () => import('@/views/Admin/AddChaptersView.vue'),
+              props: true,
+            },
             {
               path: '',
               redirect: { name: 'AdminUsers' },
