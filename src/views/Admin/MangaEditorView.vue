@@ -2,7 +2,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -123,16 +123,25 @@ const fetchChapters = async () => {
 
 //Hàm xóa chương
 const deleteChapter = async (chapterId) => {
-  if (!confirm('Bạn có chắc chắn muốn xóa chương này?')) return
+  Modal.confirm({
+    title: 'Xác nhận xóa chương?',
+    content: 'Dữ liệu chương và toàn bộ ảnh sẽ bị xóa sạch khỏi hệ thống.',
+    okText: 'Xóa ngay',
+    okType: 'danger',
+    async onOk() {
+      try {
+        // Chỉ cần 1 lệnh duy nhất, Database tự lo phần còn lại nhờ CASCADE
+        const { error } = await supabase.from('chapters').delete().eq('id', chapterId)
 
-  try {
-    const { error } = await supabase.from('chapters').delete().eq('id', chapterId)
-    if (error) throw error
-    message.success('Xóa chương thành công')
-    fetchChapters() // Load lại danh sách
-  } catch (err) {
-    message.error('Lỗi khi xóa: ' + err.message)
-  }
+        if (error) throw error
+
+        message.success('Đã xóa chương và các trang liên quan!')
+        fetchChapters() // Load lại danh sách chương
+      } catch (err) {
+        message.error('Lỗi khi xóa: ' + err.message)
+      }
+    },
+  })
 }
 
 // Load dữ liệu
