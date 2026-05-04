@@ -45,8 +45,7 @@ const handleSave = async () => {
         {
           manga_id: mangaId,
           chapter_number: parseInt(form.value.chapter_number),
-          title: form.value.title,
-          manga_slug: route.query.mangaSlug, // (Tùy chọn) Lưu slug để query nhanh hơn
+          chapter_name: form.value.title,
         },
       ])
       .select()
@@ -55,13 +54,21 @@ const handleSave = async () => {
     if (chapterErr) throw chapterErr
 
     // BƯỚC 2: Upload từng ảnh lên Storage và lấy URL
-    const uploadPromises = fileList.value.map(async (file, index) => {
+    // AddChaptersView.vue
+
+    const uploadPromises = fileList.value.map(async (fileItem, index) => {
+      // QUAN TRỌNG: Lấy file gốc từ originFileObj
+      const file = fileItem.originFileObj || fileItem
+
       const fileName = `${Date.now()}_${index}.${file.name.split('.').pop()}`
       const filePath = `manga_${mangaId}/chapter_${chapter.id}/${fileName}`
 
       const { error: storageErr } = await supabase.storage
-        .from('chapters-data') // Tên bucket của bạn
-        .upload(filePath, file)
+        .from('chapters-data')
+        .upload(filePath, file, {
+          contentType: file.type, // Ép kiểu content-type để tránh lỗi header
+          upsert: true,
+        })
 
       if (storageErr) throw storageErr
 
