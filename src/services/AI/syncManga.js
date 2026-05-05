@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabaseClient'
 
-// Hàm tạo độ trễ (delay) để AI "thở", tránh lỗi 429 Too Many Requests
+// Hàm tiện ích để tạo delay (dùng để tránh lỗi 429 khi gọi API quá nhanh)
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const sync50Mangas = async () => {
@@ -140,10 +140,10 @@ export const sync50Mangas = async () => {
       }
 
       // ==========================================
-      // BƯỚC QUAN TRỌNG NHẤT: NGHỈ 4 GIÂY ĐỂ TRÁNH LỖI 429
+      // BƯỚC QUAN TRỌNG NHẤT: NGHỈ 3 GIÂY ĐỂ TRÁNH LỖI 429
       // ==========================================
-      console.log('... đang nghỉ 4 giây để AI thở ...')
-      await delay(4000)
+      console.log('... đang nghỉ 3 giây để không bị lỗi 429 ...')
+      await delay(3000)
     }
 
     console.log('🎉 Đã hoàn thành tiến trình nạp 50 truyện cho AI!')

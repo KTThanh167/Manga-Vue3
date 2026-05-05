@@ -1,13 +1,11 @@
 <script setup>
-// Nhận dữ liệu từ cha (SearchView)
 defineProps({
-  modelValue: String, // Từ khóa tìm kiếm (keyword)
-  suggestions: Array, // Danh sách gợi ý từ store
-  showSuggestions: Boolean, // Trạng thái ẩn/hiện gợi ý
-  imageResources: String, // Base URL của ảnh từ store
+  modelValue: String,
+  suggestions: Array,
+  showSuggestions: Boolean,
+  imageResources: String,
 })
 
-// Báo cáo sự kiện ngược lại cho cha
 const emit = defineEmits(['update:modelValue', 'search', 'selectSuggestion', 'focus'])
 </script>
 

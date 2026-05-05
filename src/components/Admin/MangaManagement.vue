@@ -150,10 +150,10 @@ const fetchMangas = async (page = 1) => {
       // Lấy tổng số truyện
       totalItems.value = pagination?.totalItems || 0
 
-      // Lấy số truyện trên mỗi trang từ API (trường hợp này là 24)
+      // Lấy số truyện trên mỗi trang từ API (24 truyện)
       const perPage = pagination?.totalItemsPerPage || itemsPerPage.value
 
-      // TÍNH TOÁN SỐ TRANG THỦ CÔNG
+      // Tính toán số trang
       totalPages.value = Math.ceil(totalItems.value / perPage)
 
       currentPage.value = page

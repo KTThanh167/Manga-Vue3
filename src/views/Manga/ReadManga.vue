@@ -80,7 +80,7 @@ const fetchChapterData = async () => {
           chapter_pages (image_url, page_order)
         `,
         )
-        .eq('manga_id', mangaData.id) // Dùng ID vừa lấy được ở trên
+        .eq('manga_id', mangaData.id)
         .eq('chapter_number', chapterNum)
         .maybeSingle()
 
@@ -103,7 +103,7 @@ const fetchChapterData = async () => {
 
       await saveReadingHistory(chapterData.value)
     } else {
-      // --- LOGIC LẤY TRUYỆN OTRUYEN (GIỮ NGUYÊN) ---
+      // --- LOGIC LẤY TRUYỆN OTRUYEN ---
       let apiUrl = route.query.api
       if (apiUrl && !apiUrl.startsWith('http')) {
         apiUrl = `https://otruyenapi.com${apiUrl}`

@@ -37,7 +37,7 @@
           />
         </div>
 
-        <!-- ================= CÔNG CỤ AI (MỚI THÊM) ================= -->
+        <!-- AI nạp truyện vào supabase để chat box gợi ý -->
         <div
           class="bg-white rounded-xl shadow-sm p-6 mb-8 border-l-4 border-indigo-600 flex flex-col md:flex-row items-center justify-between gap-4"
         >
@@ -65,7 +65,7 @@
         <!-- Thanh hành động nhanh -->
         <QuickActions @changeSection="navigateToSection" />
 
-        <!-- KHU VỰC QUAN TRỌNG NHẤT: Nội dung thay đổi theo URL -->
+        <!-- Khu vực nội dung chính (thay đổi theo tab) -->
         <div class="mt-8">
           <router-view v-slot="{ Component }">
             <transition name="fade" mode="out-in">
@@ -83,7 +83,7 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
-import { message } from 'ant-design-vue' // THÊM import message để hiện thông báo
+import { message } from 'ant-design-vue'
 
 // Import Layout Components
 import AdminHeader from '@/components/Admin/AdminHeader.vue'

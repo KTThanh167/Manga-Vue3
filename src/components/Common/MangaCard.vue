@@ -152,7 +152,7 @@ const timeAgo = (dateString) => {
   }
   50% {
     opacity: 0.2;
-  } /* Mờ dần */
+  }
   100% {
     opacity: 1;
   }

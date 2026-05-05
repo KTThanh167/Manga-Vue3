@@ -16,7 +16,6 @@ const fetchLocalMangas = async () => {
 
     if (error) throw error
 
-    // Map dữ liệu từ DB (title, thumbnail_url) sang format mà MangaCard mong đợi
     localMangas.value = (data || []).map((item) => ({
       _id: item.id,
       name: item.title,

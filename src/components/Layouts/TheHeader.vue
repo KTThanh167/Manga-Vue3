@@ -215,14 +215,11 @@ const handleLogout = async () => {
     console.error('Lỗi khi đăng xuất:', error.message)
   } else {
     isDropdownOpen.value = false
-    router.push('/') // Quay về trang chủ sau khi thoát
+    router.push('/')
   }
 }
 
-/**
- * Directive để click ra ngoài thì đóng dropdown
- * (Bạn có thể cài thư viện @vueuse/core hoặc viết đơn giản như bên dưới)
- */
+// 5. Directive để đóng dropdown khi click ra ngoài
 const vClickOutside = {
   mounted(el, binding) {
     el.clickOutsideEvent = (event) => {

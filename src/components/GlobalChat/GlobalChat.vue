@@ -43,7 +43,7 @@ const hasMyReaction = (messageId, emoji) => {
 const toggleReaction = async (messageId, emoji) => {
   if (!currentUser.value) return
 
-  // 1. Tìm reaction hiện có (quan trọng: so sánh đúng kiểu dữ liệu)
+  // 1. Tìm reaction hiện có
   const existing = reactions.value.find(
     (r) =>
       String(r.message_id) === String(messageId) &&
@@ -52,8 +52,7 @@ const toggleReaction = async (messageId, emoji) => {
   )
 
   if (existing) {
-    // 2. Nếu đã tồn tại -> XÓA (Un-react)
-    // Lưu ý: Dùng id của reaction đó để xóa cho chính xác
+    // 2. Nếu đã tồn tại -> XÓA
     const { error } = await supabase.from('message_reactions').delete().eq('id', existing.id)
 
     if (error) console.error('Lỗi khi xóa cảm xúc:', error.message)
@@ -66,7 +65,6 @@ const toggleReaction = async (messageId, emoji) => {
     })
 
     if (error) {
-      // Nếu vẫn dính lỗi 409, nghĩa là DB và UI đang bị lệch đồng bộ
       console.warn('Cảm xúc đã tồn tại trên server, đang đồng bộ lại...')
     }
   }
@@ -143,14 +141,13 @@ const sendMessage = async () => {
   const content = newMessage.value
   newMessage.value = ''
 
-  // Lấy tên mới nhất từ bảng profiles thông qua authStore
-  // (Đảm bảo authStore.profile đã được fetch ở onMounted)
+  // Lấy tên mới nhất từ bảng profiles thông qua authStore để đảm bảo đồng bộ với tên hiển thị trên toàn app
   const displayName =
     authStore.profile?.username || currentUser.value.user_metadata.username || 'Thành viên'
 
   const { error } = await supabase.from('global_messages').insert({
     user_id: currentUser.value.id,
-    user_name: displayName, // Gửi tên đã chỉnh sửa lên DB
+    user_name: displayName,
     content: content,
   })
 
@@ -168,9 +165,9 @@ const formatTimeAgo = (dateString) => {
 
   // Tính khoảng cách từ thời gian đó đến hiện tại
   return formatDistanceToNow(date, {
-    addSuffix: true, // Thêm hậu tố "trước" hoặc "sau"
-    locale: vi, // Chuyển sang tiếng Việt
-  }).replace('khoảng ', '') // Loại bỏ chữ "khoảng" để ngắn gọn hơn
+    addSuffix: true,
+    locale: vi,
+  }).replace('khoảng ', '')
 }
 
 // --- LIFECYCLE ---
