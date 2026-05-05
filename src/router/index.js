@@ -156,6 +156,7 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   if (to.path.startsWith('/admin')) {
+    // 1. Kiểm tra xem người dùng đã đăng nhập chưa
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -164,10 +165,15 @@ router.beforeEach(async (to) => {
       return '/login'
     }
 
-    // FIX: Lấy role từ app_metadata (thông tin trong Token) thay vì bảng profiles
-    const userRole = user.app_metadata?.role
+    // 2. Lấy role trực tiếp từ bảng profiles để luôn có dữ liệu mới nhất
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-    if (userRole !== 'admin') {
+    // 3. Kiểm tra xem role có phải là admin không (dùng trim() cho chắc chắn)
+    if (error || !profile || profile.role?.trim() !== 'admin') {
       alert('Bạn không có quyền truy cập vùng này!')
       return '/'
     }
