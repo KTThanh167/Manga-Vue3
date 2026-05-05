@@ -1,8 +1,14 @@
 import { supabase } from '@/lib/supabaseClient'
 
-export const sync20Mangas = async () => {
+// Hàm tạo độ trễ (delay) để AI "thở", tránh lỗi 429 Too Many Requests
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+export const sync50Mangas = async () => {
   try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY.trim()
+    // Kiểm tra API Key an toàn để không bị lỗi trên Vercel
+    const rawKey = import.meta.env.VITE_GEMINI_API_KEY
+    if (!rawKey) throw new Error('Chưa cấu hình API Key VITE_GEMINI_API_KEY!')
+    const apiKey = rawKey.trim()
 
     // ==========================================
     // BƯỚC 1: TỰ ĐỘNG DÒ TÌM MODEL MÀ TÀI KHOẢN ĐƯỢC PHÉP DÙNG
@@ -33,12 +39,28 @@ export const sync20Mangas = async () => {
     console.log(`✅ Đã dò trúng đài! Sử dụng model: ${targetModelName}`)
     // ==========================================
 
-    console.log('Bắt đầu gọi API Otruyen...')
-    const response = await fetch('https://otruyenapi.com/v1/api/danh-sach/truyen-moi')
-    const result = await response.json()
-    const items = result.data.items.slice(0, 20)
+    console.log('Bắt đầu gọi API Otruyen để gom đủ 50 truyện...')
 
-    for (const item of items) {
+    // Gom đủ 50 truyện từ các trang
+    let allItems = []
+    let page = 1
+    while (allItems.length < 50) {
+      const response = await fetch(
+        `https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${page}`,
+      )
+      const result = await response.json()
+      const items = result.data?.items || []
+
+      if (items.length === 0) break // Hết dữ liệu
+      allItems = allItems.concat(items)
+      page++
+    }
+
+    // Cắt chính xác 50 truyện mới nhất
+    const itemsToProcess = allItems.slice(0, 50)
+    console.log(`Đã gom đủ ${itemsToProcess.length} truyện. Bắt đầu nạp cho AI...`)
+
+    for (const item of itemsToProcess) {
       try {
         console.log(`Đang xử lý truyện: ${item.slug}`)
         const detailRes = await fetch(`https://otruyenapi.com/v1/api/truyen-tranh/${item.slug}`)
@@ -116,9 +138,15 @@ export const sync20Mangas = async () => {
         console.error(`❌ Lỗi bất ngờ khi xử lý [${item.slug}]:`, innerErr)
         continue
       }
+
+      // ==========================================
+      // BƯỚC QUAN TRỌNG NHẤT: NGHỈ 4 GIÂY ĐỂ TRÁNH LỖI 429
+      // ==========================================
+      console.log('... đang nghỉ 4 giây để AI thở ...')
+      await delay(4000)
     }
 
-    console.log('🎉 Đã hoàn thành tiến trình nạp dữ liệu AI!')
+    console.log('🎉 Đã hoàn thành tiến trình nạp 50 truyện cho AI!')
     return true
   } catch (error) {
     console.error('Lỗi đồng bộ tổng thể:', error)
