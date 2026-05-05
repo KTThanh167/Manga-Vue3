@@ -57,7 +57,7 @@
             :loading="isSyncing"
             @click="handleSyncAI"
           >
-            Nạp 20 truyện mới nhất
+            Nạp 50 truyện mới nhất
           </a-button>
         </div>
         <!-- ========================================================= -->
@@ -91,7 +91,7 @@ import StatCard from '@/components/Admin/StatCard.vue'
 import QuickActions from '@/components/Admin/QuickActions.vue'
 
 // Import hàm nạp dữ liệu AI
-import { sync20Mangas } from '@/services/AI/syncManga.js'
+import { sync50Mangas } from '@/services/AI/syncManga.js'
 
 const router = useRouter()
 const userProfile = ref(null)
@@ -112,9 +112,9 @@ const handleSyncAI = async () => {
   })
 
   try {
-    await sync20Mangas()
+    await sync50Mangas()
     message.success({
-      content: 'Tuyệt vời! AI đã học xong 20 bộ truyện mới.',
+      content: 'Tuyệt vời! AI đã học xong 50 bộ truyện mới.',
       key: 'sync_ai',
       duration: 3,
     })
