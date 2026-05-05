@@ -5,7 +5,7 @@
 
     <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div class="px-4 py-6 sm:px-0">
-        <!-- Khu vực Stats Card: Bây giờ đóng vai trò như các phím tắt điều hướng -->
+        <!-- Khu vực Stats Card -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Tổng User"
@@ -37,6 +37,31 @@
           />
         </div>
 
+        <!-- ================= CÔNG CỤ AI (MỚI THÊM) ================= -->
+        <div
+          class="bg-white rounded-xl shadow-sm p-6 mb-8 border-l-4 border-indigo-600 flex flex-col md:flex-row items-center justify-between gap-4"
+        >
+          <div>
+            <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+              🤖 Trung tâm Dữ liệu AI (Vector Search)
+            </h2>
+            <p class="text-sm text-gray-500 mt-1">
+              Đồng bộ dữ liệu truyện thành Vector để Chatbox AI có thể "hiểu" và tư vấn cho người
+              dùng.
+            </p>
+          </div>
+          <a-button
+            type="primary"
+            size="large"
+            class="!bg-indigo-600 hover:!bg-indigo-700 !border-none !rounded-lg flex items-center shadow-md shadow-indigo-200"
+            :loading="isSyncing"
+            @click="handleSyncAI"
+          >
+            Nạp 20 truyện mới nhất
+          </a-button>
+        </div>
+        <!-- ========================================================= -->
+
         <!-- Thanh hành động nhanh -->
         <QuickActions @changeSection="navigateToSection" />
 
@@ -58,19 +83,55 @@ import { ref, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
+import { message } from 'ant-design-vue' // THÊM import message để hiện thông báo
 
 // Import Layout Components
 import AdminHeader from '@/components/Admin/AdminHeader.vue'
 import StatCard from '@/components/Admin/StatCard.vue'
 import QuickActions from '@/components/Admin/QuickActions.vue'
 
+// Import hàm nạp dữ liệu AI
+import { sync20Mangas } from '@/services/AI/syncManga.js'
+
 const router = useRouter()
 const userProfile = ref(null)
 const stats = ref({ totalUsers: 0, totalMangas: 0, totalReads: 0, totalRatings: 0 })
 
+// Trạng thái loading của nút nạp AI
+const isSyncing = ref(false)
+
+/**
+ * Xử lý sự kiện khi bấm nút nạp dữ liệu AI
+ */
+const handleSyncAI = async () => {
+  isSyncing.value = true
+  message.loading({
+    content: 'Đang nạp dữ liệu truyện vào não AI, vui lòng không tắt trang...',
+    key: 'sync_ai',
+    duration: 0,
+  })
+
+  try {
+    await sync20Mangas()
+    message.success({
+      content: 'Tuyệt vời! AI đã học xong 20 bộ truyện mới.',
+      key: 'sync_ai',
+      duration: 3,
+    })
+  } catch (err) {
+    console.error('Lỗi nạp AI:', err)
+    message.error({
+      content: 'Có lỗi xảy ra khi nạp. Hãy kiểm tra tab Console (F12).',
+      key: 'sync_ai',
+      duration: 3,
+    })
+  } finally {
+    isSyncing.value = false
+  }
+}
+
 /**
  * Điều hướng trang dựa trên event từ QuickActions
- * Giúp đồng bộ URL và tránh mất trang khi Reload
  */
 const navigateToSection = (section) => {
   const routes = {

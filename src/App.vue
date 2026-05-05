@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useMangaStore } from '@/stores/manga'
+import AIChatBox from '@/components/AI/AIChatBox.vue'
 
 const auth = useAuthStore()
 const mangaStore = useMangaStore()
@@ -19,4 +20,5 @@ onMounted(async () => {
 
 <template>
   <router-view />
+  <AIChatBox />
 </template>
