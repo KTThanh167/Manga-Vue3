@@ -18,12 +18,11 @@ const loadCompleted = async () => {
 }
 
 /**
- * Theo dõi sự thay đổi của page trên thanh địa chỉ (URL)
+ * Theo dõi sự thay đổi của page trên thanh URL
  */
 watch(
   () => route.query.page,
   async () => {
-    // Cuộn lên đầu trang mượt mà trước khi load dữ liệu mới
     window.scrollTo({
       top: 0,
       behavior: 'smooth',
@@ -32,15 +31,9 @@ watch(
   },
 )
 
-/**
- * Khi lần đầu truy cập trang hoặc F5
- */
 onMounted(() => {
   loadCompleted()
 })
-
-// Ghi chú: handlePageChange không còn cần thiết vì
-// Component PaginationSession của bạn đã tự xử lý router.push rồi.
 </script>
 
 <template>

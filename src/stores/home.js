@@ -44,7 +44,6 @@ export const useHomeStore = defineStore('home', () => {
       if (res.data.status === 'success') {
         let rawItems = res.data.data.items
 
-        // Sửa từ 'truyen-hoan-thanh' thành 'hoan-thanh' cho đúng với API
         if (slug === 'hoan-thanh') {
           mangas.value = rawItems
           listTitle.value = 'Truyện đã hoàn thành'

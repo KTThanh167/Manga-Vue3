@@ -123,7 +123,6 @@ const deleteItem = async (id) => {
     const { error } = await supabase.from('reading_history').delete().eq('id', id)
 
     if (!error) {
-      // Xóa thành công trên DB thì xóa luôn trong Store để UI mất ngay lập tức
       mangaStore.readingHistory = mangaStore.readingHistory.filter((item) => item.id !== id)
     } else {
       alert('Không thể xóa lịch sử, vui lòng thử lại!')

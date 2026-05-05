@@ -66,7 +66,7 @@ const deleteManga = (id) => {
 }
 
 const onImageError = (event) => {
-  const fallbackUrl = 'https://placehold.co/40x56' // Dùng placehold.co thay vì via.placeholder
+  const fallbackUrl = 'https://placehold.co/40x56'
 
   // NẾU src hiện tại ĐÃ là ảnh lỗi rồi thì DỪNG LẠI, không set nữa
   if (event.target.src === fallbackUrl) return

@@ -12,7 +12,7 @@ const chapterId = route.params.chapterId
 
 const loading = ref(false)
 const pageLoading = ref(false)
-const fileList = ref([]) // Chứa cả ảnh cũ (từ URL) và ảnh mới (File object)
+const fileList = ref([])
 
 const form = ref({
   chapter_number: '',
@@ -51,8 +51,8 @@ const fetchChapterData = async () => {
       uid: p.id,
       name: `Page ${p.page_order}`,
       status: 'done',
-      url: p.image_url, // Hiển thị ảnh cũ
-      isOld: true, // Đánh dấu đây là ảnh đã có trên server
+      url: p.image_url,
+      isOld: true,
     }))
   } catch (err) {
     message.error('Không thể tải dữ liệu chương: ' + err.message)
@@ -87,9 +87,8 @@ const handleUpdate = async () => {
     if (delErr) throw new Error('Không thể làm mới danh sách trang: ' + delErr.message)
 
     //Chuẩn bị dữ liệu và Upload ảnh
-    // Sử dụng map và Promise.all để upload song song (tăng tốc độ)
     const uploadTasks = fileList.value.map(async (item, i) => {
-      // Trường hợp 1: Ảnh đã tồn tại (isOld hoặc đã có url)
+      // Trường hợp 1: Ảnh đã tồn tại
       if (item.isOld || (item.url && !item.originFileObj)) {
         return {
           chapter_id: chapterId,
@@ -146,7 +145,6 @@ const handleRemove = (file) => {
   // Lọc bỏ file được chọn ra khỏi danh sách hiện tại
   fileList.value = fileList.value.filter((item) => item.uid !== file.uid)
 
-  // Thông báo nhẹ để Admin biết
   message.info(`Đã tạm gỡ ${file.name}. Nhấn Lưu để áp dụng thay đổi.`)
 }
 </script>

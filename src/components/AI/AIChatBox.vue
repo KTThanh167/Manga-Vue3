@@ -86,7 +86,7 @@ const chatContainer = ref(null)
 const messages = ref([
   {
     role: 'ai',
-    content: 'Chào bạn! Mình là AI tư vấn truyện. Bạn đang muốn tìm thể loại truyện như thế nào?',
+    content: 'Chào bạn! Mình là AI tư vấn truyện. Bạn đang muốn tìm truyện như thế nào?',
   },
 ])
 
@@ -108,7 +108,7 @@ const sendMessage = async () => {
   try {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY.trim()
 
-    // --- BƯỚC 1: DÒ TÌM TOÀN BỘ KHO VŨ KHÍ CỦA BẠN ---
+    // --- BƯỚC 1: KIỂM TRA MODEL ---
     const checkRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
     )
@@ -159,9 +159,9 @@ const sendMessage = async () => {
 
       // Prompt cực kỳ ngắn gọn, ép AI chỉ trả lời câu dẫn dắt
       const prompt = `Bạn là trợ lý tư vấn truyện tranh. Người dùng hỏi: "${query}".
-  Dựa vào danh sách: \n${context}\n
-  Hãy trả lời bằng 1-2 câu ngắn gọn, thân thiện để giới thiệu các bộ truyện này phù hợp thế nào.
-  Không phân tích dài dòng. Trả lời bằng tiếng Việt.`
+      Dựa vào danh sách: \n${context}\n
+      Hãy trả lời bằng 1-2 câu ngắn gọn, thân thiện để giới thiệu các bộ truyện này phù hợp thế nào.
+      Không phân tích dài dòng. Trả lời bằng tiếng Việt.`
 
       const chatRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/${chatModel}:generateContent?key=${apiKey}`,
@@ -179,7 +179,7 @@ const sendMessage = async () => {
         chatData.candidates?.[0]?.content?.parts?.[0]?.text ||
         'Đây là những bộ truyện phù hợp nhất với yêu cầu của bạn:'
 
-      // Hiển thị danh sách link dưới dạng các "Card" nhỏ gọn
+      // Hiển thị danh sách link dưới dạng các card nhỏ gọn
       aiReply += `<br><br><div class="flex flex-col gap-2">`
       matchedMangas.forEach((m) => {
         aiReply += `

@@ -54,7 +54,6 @@ const handleSave = async () => {
     if (chapterErr) throw chapterErr
 
     // BƯỚC 2: Upload từng ảnh lên Storage và lấy URL
-    // AddChaptersView.vue
 
     const uploadPromises = fileList.value.map(async (fileItem, index) => {
       // QUAN TRỌNG: Lấy file gốc từ originFileObj
@@ -66,7 +65,7 @@ const handleSave = async () => {
       const { error: storageErr } = await supabase.storage
         .from('chapters-data')
         .upload(filePath, file, {
-          contentType: file.type, // Ép kiểu content-type để tránh lỗi header
+          contentType: file.type,
           upsert: true,
         })
 

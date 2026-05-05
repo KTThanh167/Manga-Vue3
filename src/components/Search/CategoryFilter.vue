@@ -1,7 +1,7 @@
 <script setup>
 defineProps({
-  categories: Array, // Danh sách lấy từ mangaStore
-  selectedCategory: String, // Thể loại đang được chọn (slug)
+  categories: Array,
+  selectedCategory: String,
 })
 
 const emit = defineEmits(['select'])

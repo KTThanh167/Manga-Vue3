@@ -15,28 +15,24 @@ const loadData = async () => {
   await homeStore.fetchHomeData(pageFromUrl)
 }
 
-// 2. Theo dõi sự thay đổi của page trên URL (dùng khi click nút phân trang)
+// 2. Theo dõi sự thay đổi của page trên URL
 watch(
   () => route.query.page,
   async () => {
-    // Cuộn lên đầu trang mượt mà
     window.scrollTo({
       top: 0,
       behavior: 'smooth',
     })
 
-    // GỌI DATA NGAY TẠI ĐÂY
     await loadData()
   },
-  { immediate: true }, // Đảm bảo watch chạy ngay khi component mounted để load dữ liệu ban đầu
+  { immediate: true },
 )
 
 // 3. Khi F5 hoặc lần đầu vào trang
 onMounted(async () => {
-  // Gọi loadData để nó tự lấy page từ URL hiện tại
   await loadData()
 
-  // Các logic khác giữ nguyên
   await homeStore.fetchAndListen()
 })
 </script>

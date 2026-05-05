@@ -13,8 +13,8 @@ const mangaId = ref(null)
 const chapterId = ref(null)
 const mangaForm = ref({ title: '', description: '' })
 const chapterForm = ref({ name: '', number: 1 })
-const fileList = ref([]) // Cho ảnh chương
-const coverFile = ref(null) // Cho ảnh bìa
+const fileList = ref([])
+const coverFile = ref(null)
 
 // Hàm tạo Slug
 const generateSlug = (str) => {
@@ -52,8 +52,8 @@ const handleCreateManga = async () => {
         {
           title: mangaForm.value.title,
           description: mangaForm.value.description,
-          slug: generateSlug(mangaForm.value.title), // Tự tạo slug
-          thumbnail_url: publicUrlData.publicUrl, // Lưu link ảnh bìa
+          slug: generateSlug(mangaForm.value.title),
+          thumbnail_url: publicUrlData.publicUrl,
         },
       ])
       .select('id')

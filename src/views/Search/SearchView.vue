@@ -4,7 +4,6 @@ import { useHomeStore } from '@/stores/home'
 import { useMangaStore } from '@/stores/manga'
 import { useRoute, useRouter } from 'vue-router'
 
-// Import Components con
 import MangaCard from '@/components/Common/MangaCard.vue'
 import Pagination from '@/components/Home/PaginationSession.vue'
 import SearchBanner from '@/components/Search/SearchBanner.vue'
@@ -43,7 +42,7 @@ onMounted(async () => {
   }
 })
 
-// Theo dõi thay đổi URL (Back/Forward trình duyệt)
+// Theo dõi thay đổi URL
 watch(
   () => route.query,
   async (newQuery) => {

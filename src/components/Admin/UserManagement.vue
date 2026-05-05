@@ -245,7 +245,7 @@ const newUser = ref({
   role: 'user',
 })
 
-// Kiểm tra quyền Admin (Sử dụng chung cho mọi thao tác nhạy cảm)
+// Kiểm tra quyền Admin
 const checkIsAdmin = async () => {
   const result = await supabase.auth.getUser()
   const user = result?.data?.user
@@ -269,7 +269,7 @@ const checkIsAdmin = async () => {
   return true
 }
 
-// Tối ưu hóa: Lấy dữ liệu song song (Promise.all) để tải trang nhanh hơn
+// Lấy dữ liệu song song để tải trang nhanh hơn
 const fetchUsers = async () => {
   loading.value = true
   error.value = ''

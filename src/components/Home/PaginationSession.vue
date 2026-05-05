@@ -35,7 +35,7 @@ const goToPage = (page) => {
   router.push({
     query: {
       ...route.query,
-      page: page, // Vue Router sẽ tự chuyển page thành string trên URL
+      page: page,
     },
   })
 }

@@ -127,7 +127,6 @@ const isLoadingResetPassword = ref(false)
 const router = useRouter()
 
 const handleLogin = async () => {
-  // Hiển thị loading nhẹ
   const hideLoading = message.loading('Đang xác thực...', 0)
 
   try {
@@ -137,7 +136,7 @@ const handleLogin = async () => {
     })
 
     if (error) {
-      hideLoading() // Tắt loading
+      hideLoading()
       message.error('Đăng nhập thất bại: Tài khoản hoặc mật khẩu không chính xác!')
       return
     }
@@ -149,7 +148,7 @@ const handleLogin = async () => {
       .eq('id', data.user.id)
       .single()
 
-    hideLoading() // Tắt loading
+    hideLoading()
 
     // Chào mừng người dùng bằng tên (Username)
     message.success(`Chào mừng ${profile?.username || 'bạn'} đã quay trở lại!`)

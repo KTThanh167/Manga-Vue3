@@ -33,8 +33,8 @@ const fetchMangaDetail = async () => {
         const { data: chaptersData, error: chaptersError } = await supabase
           .from('chapters')
           .select('*')
-          .eq('manga_id', mangaData.id) // Giả định bảng chapters có cột manga_id
-          .order('chapter_number', { ascending: false }) // Sắp xếp chương mới nhất lên đầu
+          .eq('manga_id', mangaData.id)
+          .order('chapter_number', { ascending: false })
 
         if (chaptersError) console.error('Lỗi lấy chương:', chaptersError)
 
@@ -67,7 +67,6 @@ const fetchMangaDetail = async () => {
 
     // 2. Chờ dữ liệu truyện có rồi mới gọi các hàm đồng bộ
     if (manga.value) {
-      // Dùng Promise.all để gọi song song, nhanh hơn là gọi từng cái
       await Promise.all([mangaStore.checkFollowStatus(slug), mangaStore.fetchLastRead(slug)])
     }
   } catch (err) {

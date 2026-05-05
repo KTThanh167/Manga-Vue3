@@ -104,7 +104,6 @@ const saveManga = async () => {
     console.error('Lỗi hệ thống:', err)
     message.error('Lỗi hệ thống: ' + err.message)
   } finally {
-    // ĐẢM BẢO LUÔN TẮT LOADING Ở ĐÂY
     loading.value = false
   }
 }
@@ -130,13 +129,12 @@ const deleteChapter = async (chapterId) => {
     okType: 'danger',
     async onOk() {
       try {
-        // Chỉ cần 1 lệnh duy nhất, Database tự lo phần còn lại nhờ CASCADE
         const { error } = await supabase.from('chapters').delete().eq('id', chapterId)
 
         if (error) throw error
 
         message.success('Đã xóa chương và các trang liên quan!')
-        fetchChapters() // Load lại danh sách chương
+        fetchChapters()
       } catch (err) {
         message.error('Lỗi khi xóa: ' + err.message)
       }
@@ -146,13 +144,11 @@ const deleteChapter = async (chapterId) => {
 
 // Load dữ liệu
 onMounted(async () => {
-  // Chỉ thực hiện fetch dữ liệu nếu đang ở chế độ chỉnh sửa (isEdit)
   if (isEdit) {
     const mangaId = route.params.id
     pageLoading.value = true
 
     try {
-      // Sử dụng Promise.all để chạy song song 2 câu lệnh fetch, giúp tối ưu tốc độ tải trang
       const [mangaRes, chaptersRes] = await Promise.all([
         // 1. Fetch thông tin chi tiết truyện
         supabase.from('mangas').select('*').eq('id', mangaId).single(),
