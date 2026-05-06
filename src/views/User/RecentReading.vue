@@ -74,8 +74,9 @@
           <span class="i-lucide-trash-2 w-5 h-5"></span>
         </button>
 
+        <!-- Đã sửa: Trỏ về trang chi tiết truyện bằng /truyen/:slug -->
         <router-link
-          :to="`/doc-truyen/${item.manga_slug}/${item.last_chapter_id || ''}`"
+          :to="`/truyen/${item.manga_slug}`"
           class="absolute inset-0 z-0 rounded-xl"
         ></router-link>
       </div>
@@ -91,8 +92,11 @@ import { supabase } from '@/lib/supabaseClient'
 const mangaStore = useMangaStore()
 let historyChannel = null
 
-onMounted(() => {
-  // Duy trì lắng nghe Realtime để các tab đồng bộ với nhau
+onMounted(async () => {
+  // 1. GỌI API NGAY LẦN ĐẦU TIÊN VÀO TRANG
+  await mangaStore.fetchReadingHistory()
+
+  // 2. Duy trì lắng nghe Realtime để các tab đồng bộ với nhau
   historyChannel = supabase
     .channel('history-changes')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'reading_history' }, () => {
@@ -118,8 +122,8 @@ const formatTime = (dateStr) => {
   })
 }
 
-const deleteItem = async (id) => {
-  if (confirm('Bạn có muốn xóa truyện này khỏi lịch sử không?')) {
+const deleteItem = async (id, name) => {
+  if (confirm(`Bạn có chắc chắn muốn xóa "${name}" khỏi lịch sử không?`)) {
     const { error } = await supabase.from('reading_history').delete().eq('id', id)
 
     if (!error) {
