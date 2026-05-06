@@ -124,7 +124,7 @@ const timeAgo = (dateString) => {
             </span>
           </div>
         </template>
-        <p v-else class="text-[11px] text-gray-500 italic py-1 px-1.5">Đang cập nhật...</p>
+        <p v-else class="text-[11px] text-gray-500 italic py-1 px-1.5">Chuẩn bị ra mắt...</p>
       </div>
 
       <div v-else class="flex-1 flex items-center justify-center">

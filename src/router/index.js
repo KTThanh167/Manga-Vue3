@@ -115,6 +115,11 @@ const router = createRouter({
           name: 'UserComics',
           component: () => import('@/views/Manga/UserComicsView.vue'),
         },
+        {
+          path: '/contact',
+          name: 'contact',
+          component: () => import('@/views/Contact/ContactView.vue'),
+        },
       ],
     },
 
@@ -140,6 +145,7 @@ const router = createRouter({
         },
       ],
     },
+    // --- CỤM 3: CÁC TRANG DÙNG EMPTY LAYOUT ---
     {
       path: '/',
       component: EmptyLayout,
