@@ -56,8 +56,11 @@
             </li>
             <li>
               Nếu bạn là tác giả/người giữ bản quyền và phát hiện nội dung của mình bị đăng tải trái
-              phép, vui lòng liên hệ trực tiếp với Admin qua trang Liên Hệ để được hỗ trợ gỡ bỏ ngay
-              lập tức.
+              phép, vui lòng liên hệ trực tiếp với Admin qua trang
+              <router-link to="/contact" class="text-blue-600 hover:underline font-medium"
+                >Liên Hệ</router-link
+              >
+              để được hỗ trợ gỡ bỏ ngay lập tức.
             </li>
           </ul>
         </section>
