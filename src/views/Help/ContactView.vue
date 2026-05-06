@@ -52,7 +52,7 @@
 
         <!-- Nút Gmail -->
         <a
-          href="ktthanh1673@gmail.com"
+          href="mailto:ktthanh1673@gmail.com"
           class="flex items-center p-5 border-2 border-transparent bg-red-50 hover:bg-white hover:border-red-500 hover:shadow-lg rounded-2xl transition-all duration-300 group cursor-pointer"
         >
           <div
