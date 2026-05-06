@@ -62,6 +62,21 @@ export const useHomeStore = defineStore('home', () => {
     }
   }
 
+  // Helper: Chuyển tên thể loại thành đường dẫn (Ví dụ: "Ngôn Tình" -> "ngon-tinh")
+  const createSlug = (str) => {
+    if (!str) return ''
+    return str
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Xóa dấu tiếng Việt
+      .replace(/\s+/g, '-') // Thay khoảng trắng bằng dấu gạch ngang
+      .replace(/[^\w\-]+/g, '') // Xóa các ký tự đặc biệt
+      .replace(/\-\-+/g, '-') // Xóa các gạch ngang liên tiếp
+      .replace(/^-+/, '')
+      .replace(/-+$/, '')
+  }
+
   /**
    * TRANG CHỦ: Lấy truyện mới và kết hợp logic AI gợi ý
    */
@@ -94,36 +109,122 @@ export const useHomeStore = defineStore('home', () => {
   /**
    * LOGIC AI: Phân tích lịch sử đọc để tìm thể loại yêu thích nhất
    */
-  const runAIRecommendation = (history, allMangas) => {
-    if (!history?.length) return
+  const runAIRecommendation = async (history) => {
+    if (!history?.length) {
+      console.warn('AI: Chưa có lịch sử đọc')
+      recommendedList.value = mangas.value.slice(0, 8)
+      return
+    }
 
+    // ========================
+    // 1. Tìm category yêu thích
+    // ========================
     const categoryCounts = {}
+
     history.forEach((item) => {
-      item.category_list?.forEach((catName) => {
-        categoryCounts[catName] = (categoryCounts[catName] || 0) + 1
+      item.category_list?.forEach((cat) => {
+        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
       })
     })
 
-    // Tìm thể loại xuất hiện nhiều nhất
-    const favorite = Object.keys(categoryCounts).reduce(
-      (a, b) => (categoryCounts[a] > categoryCounts[b] ? a : b),
-      null,
-    )
+    const keys = Object.keys(categoryCounts)
+    if (!keys.length) return
 
-    if (favorite) {
-      topCategory.value = favorite
+    const favorite = keys.reduce((a, b) => (categoryCounts[a] > categoryCounts[b] ? a : b))
 
-      // 1. Lọc ra TẤT CẢ truyện cùng thể loại
-      const filtered = allMangas.filter((m) => m.category?.some((c) => c.name === favorite))
+    topCategory.value = favorite
 
-      // 2. Đảo trộn ngẫu nhiên để mỗi lần load trang là list gợi ý mới
-      const shuffled = filtered.sort(() => 0.5 - Math.random())
+    const categorySlug = createSlug(favorite)
 
-      // 3. Lấy ra 8 truyện để nhét vào Carousel
-      recommendedList.value = shuffled.slice(0, 8)
+    console.log('🔥 Favorite:', favorite)
+    console.log('🔥 Slug:', categorySlug)
+
+    // ========================
+    // 2. Fetch nhiều page
+    // ========================
+    let allMangas = []
+
+    try {
+      const requests = []
+
+      for (let i = 1; i <= 5; i++) {
+        requests.push(axios.get(`https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${i}`))
+      }
+
+      const responses = await Promise.all(requests)
+
+      responses.forEach((res) => {
+        if (res.data.status === 'success') {
+          allMangas.push(...res.data.data.items)
+        }
+      })
+
+      console.log('📦 Tổng manga:', allMangas.length)
+    } catch (err) {
+      console.error('❌ Lỗi fetch category:', err)
+      recommendedList.value = mangas.value.slice(0, 8)
+      return
     }
-  }
 
+    // ========================
+    // 3. Filter truyện hợp lệ
+    // ========================
+    const validMangas = allMangas.filter((m) => {
+      return (
+        Array.isArray(m.chaptersLatest) &&
+        m.chaptersLatest.some((ch) => {
+          const num = parseFloat(ch.chapter_name)
+
+          return (
+            !isNaN(num) &&
+            num > 0 &&
+            ch.chapter_api_data &&
+            typeof ch.chapter_api_data === 'string' &&
+            ch.chapter_api_data.includes('/chuong/')
+          )
+        })
+      )
+    })
+
+    console.log('📦 Sau filter:', validMangas.length)
+
+    if (!validMangas.length) {
+      console.warn('⚠️ Không có truyện hợp lệ → fallback')
+      recommendedList.value = allMangas.filter((m) => m.chaptersLatest?.length > 0).slice(0, 8)
+      return
+    }
+
+    // ========================
+    // 4. Sort theo "độ ngon"
+    // ========================
+    const now = Date.now()
+
+    const scored = validMangas.map((m) => {
+      // lấy thời gian update (nếu có)
+      const updatedAt = new Date(m.updatedAt || m.updated_at || 0).getTime()
+
+      // độ mới (càng mới càng điểm cao)
+      const freshnessScore = updatedAt ? now - updatedAt : Infinity
+
+      // độ "hot" = chapter mới nhất (số càng cao càng tốt)
+      const latestChapter = parseFloat(m.chaptersLatest?.[0]?.chapter_name || 0)
+
+      return {
+        ...m,
+        _score: freshnessScore - latestChapter * 1000, // tweak nhẹ
+      }
+    })
+
+    // sort: mới nhất + chapter cao
+    scored.sort((a, b) => a._score - b._score)
+
+    // ========================
+    // 5. Lấy top 8
+    // ========================
+    recommendedList.value = scored.slice(0, 8)
+
+    console.log('✅ Final recommend:', recommendedList.value)
+  }
   /**
    * TÌM KIẾM: Tìm truyện theo từ khóa
    */

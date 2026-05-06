@@ -145,12 +145,22 @@ watch(
         @click="router.push(`/truyen/${manga.slug}`)"
         class="group bg-white/10 backdrop-blur-md p-2 rounded-2xl hover:bg-white/25 cursor-pointer transition duration-300 border border-white/10 shadow-lg"
       >
-        <div class="overflow-hidden rounded-xl aspect-[3/4] mb-2">
+        <!-- Khung chứa ảnh bìa (Đã thêm class relative) -->
+        <div class="overflow-hidden rounded-xl aspect-[3/4] mb-2 relative">
           <img
             :src="`${homeStore.IMAGE_RESOURCES}${manga.thumb_url}`"
             class="w-full h-full object-cover group-hover:scale-110 transition duration-500"
           />
+
+          <!-- Badge hiển thị Chapter mới nhất -->
+          <div
+            v-if="manga.chaptersLatest && manga.chaptersLatest.length > 0"
+            class="absolute bottom-1 right-1 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded backdrop-blur-sm shadow-md"
+          >
+            Chương {{ manga.chaptersLatest[0].chapter_name }}
+          </div>
         </div>
+
         <p class="text-[11px] font-bold line-clamp-1 text-center">{{ manga.name }}</p>
       </div>
     </TransitionGroup>

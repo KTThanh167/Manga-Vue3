@@ -80,32 +80,53 @@ export const useMangaStore = defineStore('manga', {
   actions: {
     // 1. Lịch sử đọc
     async recordReadingHistory(manga, chapter) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        // 1. Kiểm tra quyền truy cập ngay từ đầu
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+        if (!user) return
 
-      const historyData = {
-        user_id: user.id,
-        manga_slug: manga.slug,
-        manga_name: manga.title,
-        category_list: manga.categories || [],
-        last_read_at: new Date().toISOString(),
-        last_chapter_name: chapter.name,
-        last_chapter_id: String(chapter.id),
-      }
+        // 2. Chuẩn hóa danh sách thể loại (Trích xuất mảng tên từ mảng object của API)
+        const categoryNames = Array.isArray(manga.category)
+          ? manga.category.map((c) => c.name || c)
+          : []
 
-      const { data, error } = await supabase
-        .from('reading_history')
-        .upsert(historyData, { onConflict: 'user_id, manga_slug' })
-        .select()
+        // 3. Xây dựng Payload dữ liệu (Đảm bảo không có giá trị undefined)
+        const historyData = {
+          user_id: user.id,
+          manga_slug: manga.slug,
+          manga_name: manga.name || manga.title || 'Truyện không tên',
+          category_list: categoryNames,
+          last_read_at: new Date().toISOString(),
+          last_chapter_name: chapter.chapter_name || chapter.name || 'N/A',
+          last_chapter_id: String(chapter.id || chapter.chapter_api_data || ''),
+        }
 
-      if (!error && data) {
-        const index = this.readingHistory.findIndex((i) => i.manga_slug === manga.slug)
-        if (index !== -1) this.readingHistory.splice(index, 1)
-        this.readingHistory.unshift(data[0])
-      } else if (error) {
-        console.error('Lỗi lưu DB:', error.message)
+        // 4. Thực hiện lưu vào Database
+        const { data, error } = await supabase
+          .from('reading_history')
+          .upsert(historyData, { onConflict: 'user_id, manga_slug' })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        // 5. Cập nhật State nội bộ (Pinia) để UI thay đổi ngay lập tức mà không cần F5
+        if (data) {
+          const index = this.readingHistory.findIndex((i) => i.manga_slug === manga.slug)
+
+          // Nếu truyện đã có trong danh sách local, xóa cái cũ đi
+          if (index !== -1) {
+            this.readingHistory.splice(index, 1)
+          }
+
+          // Đưa bản ghi mới nhất lên đầu mảng
+          this.readingHistory.unshift(data)
+        }
+      } catch (error) {
+        // Chỉ log lỗi thực sự cần thiết
+        console.error('❌ Lỗi ghi lịch sử đọc:', error.message || error)
       }
     },
 
