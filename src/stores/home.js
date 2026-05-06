@@ -112,10 +112,15 @@ export const useHomeStore = defineStore('home', () => {
 
     if (favorite) {
       topCategory.value = favorite
-      // Lọc ra 4 truyện cùng thể loại để gợi ý
-      recommendedList.value = allMangas
-        .filter((m) => m.category?.some((c) => c.name === favorite))
-        .slice(0, 4)
+
+      // 1. Lọc ra TẤT CẢ truyện cùng thể loại
+      const filtered = allMangas.filter((m) => m.category?.some((c) => c.name === favorite))
+
+      // 2. Đảo trộn ngẫu nhiên để mỗi lần load trang là list gợi ý mới
+      const shuffled = filtered.sort(() => 0.5 - Math.random())
+
+      // 3. Lấy ra 8 truyện để nhét vào Carousel
+      recommendedList.value = shuffled.slice(0, 8)
     }
   }
 
