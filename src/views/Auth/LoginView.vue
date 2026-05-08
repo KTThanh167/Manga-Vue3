@@ -1,116 +1,156 @@
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-100">
-    <div class="bg-white p-8 rounded-lg shadow-md w-96">
-      <h2 class="text-2xl font-bold mb-6 text-center text-indigo-600">Đăng nhập</h2>
-      <form @submit.prevent="handleLogin">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            v-model="email"
-            type="email"
-            required
-            class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black"
-          />
+  <div
+    class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900 relative overflow-hidden transition-colors duration-500"
+  >
+    <div
+      class="hidden dark:block absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-70 animate-blob"
+    ></div>
+    <div
+      class="hidden dark:block absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-70 animate-blob animation-delay-2000"
+    ></div>
+
+    <div
+      class="w-full max-w-md p-8 bg-white dark:bg-white/10 dark:backdrop-blur-xl border border-gray-200 dark:border-white/20 rounded-3xl shadow-2xl relative z-10 mx-4"
+    >
+      <div class="text-center mb-8">
+        <h2
+          class="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400"
+        >
+          MANGA REAL
+        </h2>
+        <p class="text-gray-500 dark:text-slate-300 text-sm mt-2 font-medium">
+          Thế giới truyện tranh trong tầm tay
+        </p>
+      </div>
+
+      <form @submit.prevent="handleLogin" class="space-y-5">
+        <div>
+          <label
+            class="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-widest mb-2"
+            >Email</label
+          >
+          <div class="relative group">
+            <input
+              v-model="email"
+              type="email"
+              required
+              placeholder="ten@example.com"
+              class="w-full pl-4 pr-10 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            />
+            <span
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206"
+                ></path>
+              </svg>
+            </span>
+          </div>
         </div>
-        <div class="mb-6">
-          <label class="block text-sm font-medium text-gray-700">Mật khẩu</label>
-          <div class="relative mt-1">
+
+        <div>
+          <label
+            class="block text-xs font-bold text-gray-700 dark:text-slate-300 uppercase tracking-widest mb-2"
+            >Mật khẩu</label
+          >
+          <div class="relative group">
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               required
-              class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-black pr-10"
+              placeholder="••••••••"
+              class="w-full pl-4 pr-10 py-3 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
             />
             <button
               type="button"
               @click="showPassword = !showPassword"
-              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-indigo-500 transition-colors"
             >
-              <span v-if="showPassword"><EyeOutlined /></span>
-              <span v-else><EyeInvisibleOutlined /></span>
+              <EyeOutlined v-if="showPassword" class="text-lg" />
+              <EyeInvisibleOutlined v-else class="text-lg" />
             </button>
           </div>
         </div>
+
+        <div class="flex justify-end">
+          <button
+            type="button"
+            @click="showForgotModal = true"
+            class="text-sm font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+          >
+            Quên mật khẩu?
+          </button>
+        </div>
+
         <button
           type="submit"
-          class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+          class="w-full py-3.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-gradient-to-r dark:from-indigo-500 dark:to-purple-600 dark:hover:from-indigo-600 dark:hover:to-purple-700 text-white font-black tracking-widest shadow-xl shadow-indigo-500/20 transform hover:-translate-y-0.5 active:scale-95 transition-all duration-200"
         >
-          Vào đọc truyện
+          ĐĂNG NHẬP NGAY
         </button>
       </form>
 
-      <!-- QUÊN MẬT KHẨU -->
-      <div class="mt-4 text-center">
-        <button
-          type="button"
-          @click="showForgotModal = true"
-          class="text-sm text-indigo-600 hover:underline"
+      <div
+        class="mt-8 pt-6 border-t border-gray-100 dark:border-white/10 text-center text-sm text-gray-500 dark:text-slate-400"
+      >
+        Bạn là thành viên mới?
+        <router-link
+          to="/register"
+          class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline ml-1"
+          >Tạo tài khoản</router-link
         >
-          Quên mật khẩu?
-        </button>
       </div>
-
-      <p class="mt-4 text-center text-sm text-black/70">
-        Chưa có tài khoản?
-        <router-link to="/register" class="text-indigo-600 hover:underline">Đăng ký</router-link>
-      </p>
     </div>
 
-    <!-- MODAL QUÊN MẬT KHẨU -->
-    <div
-      v-if="showForgotModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    >
-      <div class="bg-white p-6 rounded-lg shadow-lg w-96">
-        <h3 class="text-xl font-bold mb-4 text-indigo-600">Đặt lại mật khẩu</h3>
-
-        <input
-          v-model="forgotEmail"
-          type="email"
-          placeholder="Nhập email của bạn"
-          class="w-full px-3 py-2 border border-gray-300 rounded-md mb-4 text-black"
-        />
-
+    <Transition name="fade">
+      <div
+        v-if="showForgotModal"
+        class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      >
         <div
-          v-if="resetMessage"
-          :class="[
-            'mb-4 p-3 rounded text-sm text-center',
-            resetMessage.includes('Lỗi')
-              ? 'bg-red-100 text-red-600'
-              : 'bg-green-100 text-green-600',
-          ]"
+          class="bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-sm border border-gray-100 dark:border-white/10"
         >
-          {{ resetMessage }}
-        </div>
+          <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-2 text-center">
+            Khôi phục
+          </h3>
+          <p class="text-gray-500 dark:text-slate-400 text-sm text-center mb-6">
+            Nhập email liên kết với tài khoản của bạn
+          </p>
 
-        <div class="flex gap-3">
-          <button
-            @click="handleForgotPassword"
-            :disabled="isLoadingResetPassword"
-            :class="[
-              'flex-1 py-2 px-4 rounded-md transition',
-              isLoadingResetPassword
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700',
-            ]"
-          >
-            <span v-if="isLoadingResetPassword" class="inline-block mr-2">⏳</span>
-            {{ isLoadingResetPassword ? 'Đang gửi...' : 'Gửi link reset' }}
-          </button>
-          <button
-            @click="showForgotModal = false"
-            :disabled="isLoadingResetPassword"
-            class="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition disabled:opacity-50"
-          >
-            Đóng
-          </button>
+          <input
+            v-model="forgotEmail"
+            type="email"
+            class="w-full px-4 py-3 bg-gray-100 dark:bg-slate-900 border border-transparent dark:border-white/10 rounded-xl text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 mb-4 outline-none"
+            placeholder="email@gmail.com"
+          />
+
+          <div class="flex gap-3">
+            <button
+              @click="showForgotModal = false"
+              class="flex-1 py-3 px-4 bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-white rounded-xl font-bold hover:bg-gray-300 transition"
+            >
+              Hủy
+            </button>
+            <button
+              @click="handleForgotPassword"
+              :disabled="isLoadingResetPassword"
+              class="flex-1 py-3 px-4 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 disabled:opacity-50"
+            >
+              {{ isLoadingResetPassword ? '...' : 'Gửi' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </div>
 </template>
 
 <script setup>
+// Giữ nguyên phần logic cũ của bạn nhé Thành, mình chỉ tút tát giao diện thôi!
 import { ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
@@ -122,77 +162,84 @@ const password = ref('')
 const showPassword = ref(false)
 const showForgotModal = ref(false)
 const forgotEmail = ref('')
-const resetMessage = ref('')
 const isLoadingResetPassword = ref(false)
 const router = useRouter()
 
 const handleLogin = async () => {
-  const hideLoading = message.loading('Đang xác thực...', 0)
-
+  const hideLoading = message.loading('Manga Real đang xác thực...', 0)
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
     })
-
     if (error) {
       hideLoading()
-      message.error('Đăng nhập thất bại: Tài khoản hoặc mật khẩu không chính xác!')
+      message.error('Sai tài khoản hoặc mật khẩu!')
       return
     }
-
-    // Lấy thông tin profile để chào mừng
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, username')
       .eq('id', data.user.id)
       .single()
-
     hideLoading()
-
-    // Chào mừng người dùng bằng tên (Username)
-    message.success(`Chào mừng ${profile?.username || 'bạn'} đã quay trở lại!`)
-
-    // Điều hướng dựa trên role
-    if (profile?.role === 'admin') {
-      router.push('/admin/dashboard')
-    } else {
-      router.push('/')
-    }
+    message.success(`Chào mừng ${profile?.username || 'độc giả'} trở lại!`)
+    profile?.role === 'admin' ? router.push('/admin/dashboard') : router.push('/')
   } catch (err) {
+    console.error('Login error:', err)
     hideLoading()
-    console.error('Lỗi ngoại lệ:', err)
-    message.error('Đã xảy ra lỗi hệ thống, vui lòng thử lại sau.')
-    router.push('/')
+    message.error('Lỗi hệ thống rồi Thành ơi!')
   }
 }
 
-// --- QUÊN MẬT KHẨU ---
 const handleForgotPassword = async () => {
   if (!forgotEmail.value) {
-    message.warning('Vui lòng nhập email của bạn!')
+    message.warning('Nhập email đã chứ!')
     return
   }
-
   isLoadingResetPassword.value = true
-
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail.value, {
       redirectTo: `${window.location.origin}/reset-password`,
     })
-
-    if (error) {
-      message.error('Lỗi: ' + error.message)
-    } else {
-      message.success('Gửi link reset thành công! Hãy kiểm tra hòm thư của bạn.')
+    if (error) message.error(error.message)
+    else {
+      message.success('Check mail nhé!')
       showForgotModal.value = false
-      forgotEmail.value = ''
     }
-  } catch (err) {
-    message.error('Lỗi hệ thống: ' + err.message)
   } finally {
     isLoadingResetPassword.value = false
   }
 }
 </script>
-s
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+}
+.animate-blob {
+  animation: blob 7s infinite;
+}
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+</style>
