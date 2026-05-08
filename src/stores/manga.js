@@ -294,7 +294,7 @@ export const useMangaStore = defineStore('manga', {
         const newManga = {
           ...manga,
           isLocal: !!manga.isLocal,
-          category: manga.category ? [manga.category[0]] : [],
+          category: manga.category || [],
           chaptersLatest: chaptersToSave,
         }
 

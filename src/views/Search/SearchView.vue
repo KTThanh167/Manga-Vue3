@@ -94,13 +94,19 @@ const handleSelectCategory = (slug) => {
 
 // Xử lý chuyển trang từ Pagination
 const handlePageChange = (page) => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
   updateURL({ page })
-  if (selectedCategory.value) {
-    homeStore.filterByCategory(selectedCategory.value, page)
-  } else {
-    homeStore.searchMangas(keyword.value, page)
-  }
+
+  setTimeout(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
+
+    document.documentElement.scrollTo({
+      top: 0,
+      behavior: 'smooth',
+    })
+  }, 100)
 }
 
 const selectSuggestion = (manga) => {
@@ -165,11 +171,13 @@ const resetFilters = () => {
 
       <div v-else>
         <div v-if="homeStore.searchResults?.length > 0">
-          <div
+          <TransitionGroup
+            name="list-fade"
+            tag="div"
             class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6"
           >
             <MangaCard v-for="manga in homeStore.searchResults" :key="manga._id" :manga="manga" />
-          </div>
+          </TransitionGroup>
 
           <div class="mt-16 flex justify-center">
             <Pagination @change-page="handlePageChange" />
@@ -196,3 +204,25 @@ const resetFilters = () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Hiệu ứng di chuyển mượt mà khi đổi vị trí xếp hạng */
+.list-fade-move {
+  transition: transform 0.5s ease;
+}
+
+/* Hiệu ứng khi truyện mới xuất hiện hoặc biến mất */
+.list-fade-enter-active,
+.list-fade-leave-active {
+  transition: all 0.4s ease;
+}
+.list-fade-enter-from,
+.list-fade-leave-to {
+  opacity: 0;
+  transform: translateY(20px) scale(0.95);
+}
+.list-fade-leave-active {
+  position: absolute;
+  visibility: hidden;
+}
+</style>
