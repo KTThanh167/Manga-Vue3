@@ -8,7 +8,7 @@ export default {
         sans: ['"Be Vietnam Pro"', 'sans-serif'],
       },
 
-      // 2. Cấu hình animation cũ của bạn (giữ nguyên)
+      // 2. Cấu hình animation cũ của bạn
       animation: {
         marquee: 'marquee 25s linear infinite',
       },
@@ -20,6 +20,6 @@ export default {
       },
     },
   },
-  darkMode: 'media',
+  darkMode: 'class',
   plugins: [],
 }
