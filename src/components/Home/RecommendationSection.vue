@@ -49,7 +49,7 @@ const resetAutoPlay = () => {
   startAutoPlay()
 }
 
-// Hàm hỗ trợ loại bỏ thẻ HTML cho tóm tắt truyện (Giống MangaCard)
+// Hàm hỗ trợ loại bỏ thẻ HTML cho tóm tắt truyện
 const stripHtml = (html) => {
   if (!html) return 'Đang cập nhật nội dung...'
   const tmp = document.createElement('DIV')
