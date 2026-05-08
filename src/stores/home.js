@@ -2,6 +2,7 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import axios from 'axios'
 import { supabase } from '../lib/supabaseClient'
+import { sortByLatestUpdate } from '@/utils/sortManga'
 
 export const useHomeStore = defineStore('home', () => {
   // ==========================================
@@ -136,9 +137,6 @@ export const useHomeStore = defineStore('home', () => {
 
     const categorySlug = createSlug(favorite)
 
-    console.log('🔥 Favorite:', favorite)
-    console.log('🔥 Slug:', categorySlug)
-
     // ========================
     // 2. Fetch nhiều page
     // ========================
@@ -158,8 +156,6 @@ export const useHomeStore = defineStore('home', () => {
           allMangas.push(...res.data.data.items)
         }
       })
-
-      console.log('📦 Tổng manga:', allMangas.length)
     } catch (err) {
       console.error('❌ Lỗi fetch category:', err)
       recommendedList.value = mangas.value.slice(0, 8)
@@ -186,8 +182,6 @@ export const useHomeStore = defineStore('home', () => {
       )
     })
 
-    console.log('📦 Sau filter:', validMangas.length)
-
     if (!validMangas.length) {
       console.warn('⚠️ Không có truyện hợp lệ → fallback')
       recommendedList.value = allMangas.filter((m) => m.chaptersLatest?.length > 0).slice(0, 8)
@@ -211,7 +205,7 @@ export const useHomeStore = defineStore('home', () => {
 
       return {
         ...m,
-        _score: freshnessScore - latestChapter * 1000, // tweak nhẹ
+        _score: freshnessScore - latestChapter * 1000,
       }
     })
 
@@ -236,7 +230,7 @@ export const useHomeStore = defineStore('home', () => {
         `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=${page}`,
       )
       if (res.data.status === 'success') {
-        searchResults.value = res.data.data.items
+        searchResults.value = sortByLatestUpdate(res.data.data.items)
         totalItems.value = res.data.data.params?.pagination?.totalItems || 0
       }
     } catch (err) {
@@ -272,16 +266,49 @@ export const useHomeStore = defineStore('home', () => {
   const filterByCategory = async (categorySlug, page = 1) => {
     isSearching.value = true
     currentPage.value = page
+    searchResults.value = []
+
     try {
-      const res = await axios.get(
-        `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
+      const startPage = (page - 1) * 5 + 1
+      const endPage = page * 5
+
+      const requests = []
+      for (let i = startPage; i <= endPage; i++) {
+        requests.push(axios.get(`https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${i}`))
+      }
+
+      const responses = await Promise.all(requests)
+      let allScanned = []
+
+      responses.forEach((res) => {
+        if (res.data.status === 'success') {
+          allScanned.push(...res.data.data.items)
+        }
+      })
+
+      // 2. Lọc theo slug thể loại
+      const matchedMangas = allScanned.filter((m) =>
+        m.category?.some((c) => c.slug === categorySlug || createSlug(c.name) === categorySlug),
       )
-      if (res.data.status === 'success') {
-        searchResults.value = res.data.data.items
-        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+
+      // 3. XỬ LÝ KẾT QUẢ
+      if (matchedMangas.length > 0) {
+        // Sắp xếp lại cho chuẩn xác tuyệt đối theo thời gian
+        searchResults.value = sortByLatestUpdate(matchedMangas)
+
+        totalItems.value = 500
+      } else {
+        // Nếu không có kết quả nào từ API, thử fallback sang API thể loại
+        const fallbackRes = await axios.get(
+          `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
+        )
+        if (fallbackRes.data.status === 'success') {
+          searchResults.value = sortByLatestUpdate(fallbackRes.data.data.items)
+          totalItems.value = fallbackRes.data.data.params?.pagination?.totalItems || 0
+        }
       }
     } catch (err) {
-      console.error('Lỗi lọc thể loại:', err)
+      console.error('Lỗi lọc thể loại nâng cao:', err)
     } finally {
       isSearching.value = false
     }
