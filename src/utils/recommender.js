@@ -24,5 +24,5 @@ export const recommendMangas = (allMangas, topCategory) => {
   // Lọc ra những truyện có chứa thể loại yêu thích nhất
   return allMangas
     .filter((manga) => manga.category && manga.category.some((c) => c.name === topCategory))
-    .slice(0, 8) // Lấy tối đa 4 truyện gợi ý
+    .slice(0, 8)
 }
