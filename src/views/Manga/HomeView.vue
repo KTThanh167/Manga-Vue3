@@ -38,7 +38,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="bg-gray-50 min-h-screen pt-[50px] pb-[50px]">
+  <div class="pt-[50px] pb-[50px] transition-colors duration-300">
     <div class="container mx-auto px-4 py-8 flex flex-col lg:flex-row gap-8">
       <div class="flex-1">
         <RecommendationSection />

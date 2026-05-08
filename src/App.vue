@@ -19,6 +19,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <router-view />
-  <AIChatBox />
+  <div
+    class="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-gray-100 transition-colors duration-300 flex flex-col"
+  >
+    <router-view class="flex-grow" />
+    <AIChatBox />
+  </div>
 </template>
