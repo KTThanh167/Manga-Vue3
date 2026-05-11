@@ -51,7 +51,6 @@
 </template>
 
 <script setup>
-// Giữ nguyên 100% script cũ của bạn
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'

@@ -166,7 +166,6 @@
 </template>
 
 <script setup>
-// Giữ nguyên 100% script cũ của bạn
 import { useMangaStore } from '../../stores/manga'
 import { useRouter } from 'vue-router'
 
@@ -181,32 +180,75 @@ const goToCategory = (cat) => {
   router.push({ path: '/search', query: { category: cat.slug } })
 }
 
+/**
+ * HÀM ĐỌC TỪ ĐẦU
+ */
 const startReading = () => {
   if (!props.manga.chapters || props.manga.chapters.length === 0) {
     alert('Truyện chưa có chương để đọc!')
     return
   }
-  const firstChapter = props.manga.chapters[0].server_data.slice(-1)[0]
-  router.push({
-    name: 'ReadManga',
-    params: { slug: props.manga.slug, chapter: String(firstChapter.chapter_name) },
-    query: { api: firstChapter.chapter_api_data },
-  })
+
+  const serverData = props.manga.chapters[0].server_data
+  const firstChapter = serverData[0]
+
+  const apiLink = firstChapter.chapter_api_data
+  const isLocalManga = !apiLink
+
+  if (isLocalManga) {
+    router.push({
+      name: 'ReadManga',
+      params: { slug: props.manga.slug, chapter: String(firstChapter.chapter_name) },
+      query: { isLocal: 'true' },
+    })
+  } else {
+    router.push({
+      name: 'ReadManga',
+      params: { slug: props.manga.slug, chapter: String(firstChapter.chapter_name) },
+      query: { api: apiLink },
+    })
+  }
 }
 
+/**
+ * HÀM ĐỌC TIẾP
+ */
 const continueReading = () => {
   const history = mangaStore.lastReadChapter
   if (!history) return
-  router.push({
-    name: 'ReadManga',
-    params: { slug: props.manga.slug, chapter: String(history.last_chapter_name) },
-    query: { api: history.chapter_api_data },
-  })
+
+  // 🔥 ĐÃ FIX: Dùng thông tin truyện HIỆN TẠI (props.manga) để xác định loại truyện
+  // Thay vì dùng lịch sử đọc (có thể bị thiếu dữ liệu do bản code cũ)
+  const serverData = props.manga.chapters[0].server_data
+  const sampleChapter = serverData[0]
+  const isLocalManga = !sampleChapter.chapter_api_data
+
+  if (isLocalManga) {
+    // ĐỌC TIẾP TRUYỆN LOCAL
+    router.push({
+      name: 'ReadManga',
+      params: { slug: props.manga.slug, chapter: String(history.last_chapter_name) },
+      query: { isLocal: 'true' },
+    })
+  } else {
+    // ĐỌC TIẾP TRUYỆN OTRUYEN
+    const targetChapter = serverData.find(
+      (c) => String(c.chapter_name) === String(history.last_chapter_name),
+    )
+
+    // Dò lại link API mới nhất, nếu không thấy thì xài link cũ trong lịch sử
+    const correctApiLink = targetChapter ? targetChapter.chapter_api_data : history.chapter_api_data
+
+    router.push({
+      name: 'ReadManga',
+      params: { slug: props.manga.slug, chapter: String(history.last_chapter_name) },
+      query: { api: correctApiLink },
+    })
+  }
 }
 </script>
 
 <style scoped>
-/* Tùy chỉnh thanh cuộn cho phần mô tả đẹp hơn */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
