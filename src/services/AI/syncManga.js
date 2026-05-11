@@ -13,7 +13,6 @@ export const sync50Mangas = async () => {
     // ==========================================
     // BƯỚC 1: TỰ ĐỘNG DÒ TÌM MODEL MÀ TÀI KHOẢN ĐƯỢC PHÉP DÙNG
     // ==========================================
-    console.log('🔍 Đang kiểm tra kho vũ khí AI của bạn...')
     const checkRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
     )

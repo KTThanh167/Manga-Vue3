@@ -189,7 +189,7 @@ export const useHomeStore = defineStore('home', () => {
     }
 
     // ========================
-    // 4. Sort theo "độ ngon"
+    // 4. Sort theo độ mới + chapter mới nhất
     // ========================
     const now = Date.now()
 
