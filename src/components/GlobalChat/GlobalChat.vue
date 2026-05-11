@@ -213,7 +213,7 @@ onUnmounted(() => {
               </span>
             </div>
 
-            <div class="relative">
+            <div class="relative group/msg">
               <p
                 :class="[
                   'text-sm p-3 shadow-sm border transition-colors relative z-10 leading-relaxed break-words',
@@ -228,8 +228,8 @@ onUnmounted(() => {
               <div
                 v-if="currentUser"
                 :class="[
-                  'absolute top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all flex bg-white dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 shadow-xl rounded-full px-2 py-1.5 gap-1.5 z-20',
-                  msg.user_id === currentUser?.id ? 'right-full mr-2' : 'left-full ml-2',
+                  'absolute -top-10 opacity-0 group-hover/msg:opacity-100 transition-all duration-200 flex bg-white dark:bg-neutral-800 border border-gray-100 dark:border-neutral-700 shadow-xl rounded-full px-2 py-1.5 gap-1.5 z-30 scale-95 group-hover/msg:scale-100 origin-bottom',
+                  msg.user_id === currentUser?.id ? 'right-0' : 'left-0',
                 ]"
               >
                 <button
