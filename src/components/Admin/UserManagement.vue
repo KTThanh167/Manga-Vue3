@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
 import { message } from 'ant-design-vue'
 
@@ -13,6 +13,75 @@ const newUser = ref({
   username: '',
   role: 'user',
 })
+
+// === LOGIC TÌM KIẾM, SẮP XẾP & PHÂN TRANG ===
+const currentPage = ref(1)
+const itemsPerPage = ref(10) // Số user hiển thị trên 1 trang
+const searchQuery = ref('')
+const sortBy = ref('time_desc') // Mặc định: Mới nhất
+
+// 1. Hàm lọc và sắp xếp (Chạy tự động mỗi khi mảng users, ô tìm kiếm hoặc dropdown thay đổi)
+const filteredAndSortedUsers = computed(() => {
+  let result = [...users.value]
+
+  // Lọc theo từ khóa (Tìm cả Username lẫn Email)
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter((user) => {
+      const nameMatch = (user.username || '').toLowerCase().includes(query)
+      const emailMatch = (user.email || '').toLowerCase().includes(query)
+      return nameMatch || emailMatch
+    })
+  }
+
+  // Sắp xếp
+  result.sort((a, b) => {
+    // Lấy chuỗi chuẩn để so sánh tên (Ưu tiên Username, nếu rỗng thì dùng Email)
+    const nameA = (a.username || a.email).toLowerCase()
+    const nameB = (b.username || b.email).toLowerCase()
+
+    // Lấy thời gian chuẩn (Ưu tiên created_at, nếu không có thì lấy updated_at)
+    const timeA = new Date(a.created_at || a.updated_at).getTime()
+    const timeB = new Date(b.created_at || b.updated_at).getTime()
+
+    if (sortBy.value === 'name_asc') {
+      return nameA.localeCompare(nameB)
+    } else if (sortBy.value === 'name_desc') {
+      return nameB.localeCompare(nameA)
+    } else if (sortBy.value === 'time_asc') {
+      return timeA - timeB
+    } else {
+      // time_desc (Mặc định)
+      return timeB - timeA
+    }
+  })
+
+  return result
+})
+
+// 2. Tính tổng số trang dựa trên danh sách ĐÃ LỌC
+const totalPages = computed(() => {
+  return Math.ceil(filteredAndSortedUsers.value.length / itemsPerPage.value) || 1
+})
+
+// 3. Cắt danh sách để hiển thị trên trang hiện tại
+const paginatedUsers = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value
+  const end = start + itemsPerPage.value
+  return filteredAndSortedUsers.value.slice(start, end)
+})
+
+// Reset về trang 1 nếu người dùng gõ tìm kiếm hoặc đổi kiểu sắp xếp
+watch([searchQuery, sortBy], () => {
+  currentPage.value = 1
+})
+
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+  }
+}
+// ======================================
 
 // Kiểm tra quyền Admin
 const checkIsAdmin = async () => {
@@ -38,7 +107,7 @@ const checkIsAdmin = async () => {
   return true
 }
 
-// Lấy dữ liệu song song để tải trang nhanh hơn
+// Lấy dữ liệu song song
 const fetchUsers = async () => {
   loading.value = true
   error.value = ''
@@ -59,6 +128,10 @@ const fetchUsers = async () => {
     ]
 
     users.value = allUsers
+
+    if (currentPage.value > totalPages.value) {
+      currentPage.value = totalPages.value
+    }
   } catch (err) {
     console.error('Lỗi tải danh sách người dùng:', err)
     error.value = 'Không thể tải danh sách người dùng. Vui lòng kiểm tra kết nối database.'
@@ -68,6 +141,9 @@ const fetchUsers = async () => {
 }
 
 const refreshUsers = () => {
+  searchQuery.value = ''
+  sortBy.value = 'time_desc'
+  currentPage.value = 1
   fetchUsers()
 }
 
@@ -120,7 +196,6 @@ const deleteUser = async (user) => {
   if (!isAdmin) return
 
   try {
-    // Cảnh báo đặc biệt cho user Auth
     if (user.user_type === 'supabase') {
       message.warning(
         'LƯU Ý: Thao tác này chỉ xóa hồ sơ hiển thị (Profile). Để xóa vĩnh viễn tài khoản đăng nhập của người này, bạn cần vào Dashboard Supabase -> mục Authentication -> Users để xóa.',
@@ -195,7 +270,7 @@ defineExpose({
     ></div>
 
     <div
-      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 relative z-10"
+      class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 relative z-10"
     >
       <div>
         <h3
@@ -247,6 +322,65 @@ defineExpose({
       </div>
     </div>
 
+    <div class="flex flex-col md:flex-row gap-4 mb-8 relative z-10">
+      <div class="relative flex-1">
+        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            ></path>
+          </svg>
+        </div>
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Tìm kiếm theo Tên hiển thị hoặc Email..."
+          class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder-gray-400 font-medium"
+        />
+        <button
+          v-if="searchQuery"
+          @click="searchQuery = ''"
+          class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            ></path>
+          </svg>
+        </button>
+      </div>
+
+      <div class="shrink-0 relative">
+        <select
+          v-model="sortBy"
+          class="w-full md:w-48 pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium appearance-none cursor-pointer"
+        >
+          <option value="time_desc">⏱️ Gần đây nhất</option>
+          <option value="time_asc">🕰️ Cũ nhất</option>
+          <option value="name_asc">🔤 Tên A ➡️ Z</option>
+          <option value="name_desc">🔤 Tên Z ➡️ A</option>
+        </select>
+        <div
+          class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 9l-7 7-7-7"
+            ></path>
+          </svg>
+        </div>
+      </div>
+    </div>
+
     <div v-if="loading" class="flex flex-col items-center justify-center py-20 relative z-10">
       <div class="relative w-12 h-12 mb-4">
         <div
@@ -277,7 +411,7 @@ defineExpose({
     </div>
 
     <div
-      v-else-if="users.length === 0"
+      v-else-if="filteredAndSortedUsers.length === 0"
       class="flex flex-col items-center justify-center py-20 relative z-10 text-gray-500 dark:text-gray-400"
     >
       <svg class="w-16 h-16 mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,189 +419,274 @@ defineExpose({
           stroke-linecap="round"
           stroke-linejoin="round"
           stroke-width="2"
-          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
         ></path>
       </svg>
-      <p class="font-medium">Chưa có dữ liệu người dùng nào trong hệ thống.</p>
+      <p class="font-medium text-lg">Không tìm thấy tài khoản nào khớp với "{{ searchQuery }}"</p>
+      <button
+        @click="searchQuery = ''"
+        class="mt-4 text-blue-500 hover:text-blue-600 font-bold underline"
+      >
+        Xóa bộ lọc
+      </button>
     </div>
 
-    <div
-      v-else
-      class="relative z-10 overflow-x-auto rounded-2xl border border-gray-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-sm"
-    >
-      <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700/80">
-        <thead class="bg-gray-50/80 dark:bg-slate-800/80 backdrop-blur-sm">
-          <tr>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
-            >
-              Username
-            </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden md:table-cell"
-            >
-              Email
-            </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
-            >
-              Loại
-            </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
-            >
-              Role
-            </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
-            >
-              Trạng Thái
-            </th>
-            <th
-              class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden lg:table-cell"
-            >
-              Ngày Tạo
-            </th>
-            <th
-              class="px-6 py-4 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
-            >
-              Thao Tác
-            </th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100 dark:divide-slate-800/80">
-          <tr
-            v-for="user in users"
-            :key="user.id"
-            class="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors group"
-          >
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center gap-3">
-                <div
-                  class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0"
-                >
-                  {{
-                    user.username
-                      ? user.username.charAt(0).toUpperCase()
-                      : user.email.charAt(0).toUpperCase()
-                  }}
-                </div>
-                <div class="flex flex-col">
-                  <span class="text-sm font-bold text-gray-900 dark:text-white">{{
-                    user.username || 'N/A'
-                  }}</span>
-                  <span class="text-[11px] text-gray-500 dark:text-gray-400 md:hidden">{{
-                    user.email
-                  }}</span>
-                </div>
-              </div>
-            </td>
-
-            <td
-              class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell"
-            >
-              {{ user.email }}
-            </td>
-
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span
-                :class="[
-                  'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border',
-                  user.user_type === 'supabase'
-                    ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'
-                    : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20',
-                ]"
+    <div v-else>
+      <div
+        class="relative z-10 overflow-x-auto rounded-2xl border border-gray-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 shadow-sm"
+      >
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-slate-700/80">
+          <thead class="bg-gray-50/80 dark:bg-slate-800/80 backdrop-blur-sm">
+            <tr>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
               >
-                {{ user.user_type === 'supabase' ? 'Supabase' : 'Custom' }}
-              </span>
-            </td>
-
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span
-                :class="[
-                  'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border flex w-fit items-center gap-1.5',
-                  user.role === 'admin'
-                    ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
-                    : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
-                ]"
+                Username
+              </th>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden md:table-cell"
               >
+                Email
+              </th>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
+              >
+                Loại
+              </th>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
+              >
+                Role
+              </th>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
+              >
+                Trạng Thái
+              </th>
+              <th
+                class="px-6 py-4 text-left text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest hidden lg:table-cell"
+              >
+                Cập Nhật Gần Nhất
+              </th>
+              <th
+                class="px-6 py-4 text-right text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest"
+              >
+                Thao Tác
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100 dark:divide-slate-800/80">
+            <tr
+              v-for="user in paginatedUsers"
+              :key="user.id"
+              class="hover:bg-gray-50/50 dark:hover:bg-slate-800/30 transition-colors group"
+            >
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0"
+                  >
+                    {{
+                      user.username
+                        ? user.username.charAt(0).toUpperCase()
+                        : user.email.charAt(0).toUpperCase()
+                    }}
+                  </div>
+                  <div class="flex flex-col">
+                    <span class="text-sm font-bold text-gray-900 dark:text-white">{{
+                      user.username || 'N/A'
+                    }}</span>
+                    <span class="text-[11px] text-gray-500 dark:text-gray-400 md:hidden">{{
+                      user.email
+                    }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td
+                class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell"
+              >
+                {{ user.email }}
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap">
                 <span
-                  class="w-1.5 h-1.5 rounded-full"
-                  :class="
-                    user.role === 'admin'
-                      ? 'bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.5)]'
-                      : 'bg-emerald-500'
-                  "
-                ></span>
-                {{ user.role || 'user' }}
-              </span>
-            </td>
-
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span
-                :class="[
-                  'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border',
-                  user.is_active
-                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
-                    : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-700',
-                ]"
-              >
-                {{ user.is_active ? 'Hoạt động' : 'Vô hiệu' }}
-              </span>
-            </td>
-
-            <td
-              class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 hidden lg:table-cell"
-            >
-              {{ new Date(user.created_at || user.updated_at).toLocaleDateString('vi-VN') }}
-            </td>
-
-            <td class="px-6 py-4 whitespace-nowrap text-right">
-              <div class="flex items-center justify-end gap-2">
-                <button
-                  @click="changeUserRole(user)"
-                  :class="
-                    user.role === 'admin'
-                      ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-slate-800'
-                      : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10'
-                  "
-                  class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors"
+                  :class="[
+                    'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border',
+                    user.user_type === 'supabase'
+                      ? 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-500/20'
+                      : 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-500/20',
+                  ]"
                 >
-                  {{ user.role === 'admin' ? 'Hạ Quyền' : 'Lên Admin' }}
-                </button>
+                  {{ user.user_type === 'supabase' ? 'Supabase' : 'Custom' }}
+                </span>
+              </td>
 
-                <button
-                  v-if="user.user_type !== 'supabase'"
-                  @click="toggleUserStatus(user)"
-                  :class="
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span
+                  :class="[
+                    'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border flex w-fit items-center gap-1.5',
+                    user.role === 'admin'
+                      ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-500/20'
+                      : 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
+                  ]"
+                >
+                  <span
+                    class="w-1.5 h-1.5 rounded-full"
+                    :class="
+                      user.role === 'admin'
+                        ? 'bg-rose-500 shadow-[0_0_5px_rgba(244,63,94,0.5)]'
+                        : 'bg-emerald-500'
+                    "
+                  ></span>
+                  {{ user.role || 'user' }}
+                </span>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span
+                  :class="[
+                    'px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg border',
                     user.is_active
-                      ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'
-                      : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
-                  "
-                  class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors"
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20'
+                      : 'bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-700',
+                  ]"
                 >
-                  {{ user.is_active ? 'Vô hiệu' : 'Kích hoạt' }}
-                </button>
+                  {{ user.is_active ? 'Hoạt động' : 'Vô hiệu' }}
+                </span>
+              </td>
 
-                <button
-                  @click="deleteUser(user)"
-                  class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors ml-1"
-                  title="Xóa người dùng"
-                >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <td
+                class="px-6 py-4 whitespace-nowrap text-[12px] font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell"
+              >
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
                       stroke-linecap="round"
                       stroke-linejoin="round"
                       stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     ></path>
                   </svg>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  {{
+                    new Date(user.updated_at || user.created_at).toLocaleString('vi-VN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                    })
+                  }}
+                </div>
+              </td>
+
+              <td class="px-6 py-4 whitespace-nowrap text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <button
+                    @click="changeUserRole(user)"
+                    :class="
+                      user.role === 'admin'
+                        ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-slate-800'
+                        : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-500/10'
+                    "
+                    class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors"
+                  >
+                    {{ user.role === 'admin' ? 'Hạ Quyền' : 'Lên Admin' }}
+                  </button>
+
+                  <button
+                    v-if="user.user_type !== 'supabase'"
+                    @click="toggleUserStatus(user)"
+                    :class="
+                      user.is_active
+                        ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-500/10'
+                        : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10'
+                    "
+                    class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-colors"
+                  >
+                    {{ user.is_active ? 'Vô hiệu' : 'Kích hoạt' }}
+                  </button>
+
+                  <button
+                    @click="deleteUser(user)"
+                    class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors ml-1"
+                    title="Xóa người dùng"
+                  >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      ></path>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div
+        class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 relative z-10 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-gray-100 dark:border-slate-800 transition-colors duration-300"
+      >
+        <div class="text-[13px] font-medium text-gray-500 dark:text-gray-400">
+          Hiển thị
+          <span class="font-bold text-gray-900 dark:text-white">{{
+            (currentPage - 1) * itemsPerPage + 1
+          }}</span>
+          -
+          <span class="font-bold text-gray-900 dark:text-white">{{
+            Math.min(currentPage * itemsPerPage, filteredAndSortedUsers.length)
+          }}</span>
+          trong tổng số
+          <span class="font-bold text-gray-900 dark:text-white">{{
+            filteredAndSortedUsers.length
+          }}</span>
+          tài khoản
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage <= 1"
+            class="p-2 md:px-4 md:py-2 text-sm font-bold border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-1"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 19l-7-7 7-7"
+              ></path>
+            </svg>
+            <span class="hidden md:block">Trước</span>
+          </button>
+
+          <span
+            class="px-4 py-2 text-[13px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 rounded-xl border border-blue-100 dark:border-blue-500/20"
+          >
+            Trang {{ currentPage }} / {{ totalPages }}
+          </span>
+
+          <button
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage >= totalPages"
+            class="p-2 md:px-4 md:py-2 text-sm font-bold border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-1"
+          >
+            <span class="hidden md:block">Sau</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              ></path>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
 
     <div
@@ -532,7 +751,7 @@ defineExpose({
             >
             <select
               v-model="newUser.role"
-              class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none"
+              class="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all appearance-none cursor-pointer"
             >
               <option value="user">Thành viên (User)</option>
               <option value="admin">Quản trị viên (Admin)</option>
