@@ -4,18 +4,28 @@ import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { message, notification } from 'ant-design-vue'
 import { InboxOutlined } from '@ant-design/icons-vue'
+// import { useAuthStore } from '@/stores/auth'
 
+// const authStore = useAuthStore()
 const router = useRouter()
 const currentStep = ref(0)
 const loading = ref(false)
 
 const mangaId = ref(null)
 const chapterId = ref(null)
-const mangaForm = ref({ title: '', description: '' })
+
+// CẬP NHẬT: Thêm author và status vào mangaForm
+const mangaForm = ref({
+  title: '',
+  description: '',
+  author: '', // Tên tác giả
+  status: 'ongoing', // Mặc định là đang tiến hành
+})
+
 const chapterForm = ref({ name: '', number: 1 })
 const fileList = ref([])
 const coverFile = ref(null)
-const coverPreview = ref(null) // Thêm state để hiển thị ảnh preview
+const coverPreview = ref(null)
 
 // Hàm tạo Slug
 const generateSlug = (str) => {
@@ -28,45 +38,66 @@ const generateSlug = (str) => {
     .replace(/(^-|-$)+/g, '')
 }
 
-// 1. Tạo Manga (Bao gồm upload ảnh bìa và tạo slug)
+// 1. Tạo Manga
 const handleCreateManga = async () => {
-  if (!coverFile.value || !mangaForm.value.title) {
-    message.warning('Vui lòng nhập tên truyện và chọn ảnh bìa')
+  console.log('🚀 --- BẮT ĐẦU TẠO TRUYỆN ---')
+  console.log('1. Form data hiện tại:', mangaForm.value)
+  console.log('2. File ảnh bìa:', coverFile.value)
+
+  if (!coverFile.value || !mangaForm.value.title || !mangaForm.value.author) {
+    console.log('❌ Bị chặn vì thiếu thông tin form')
+    message.warning('Vui lòng nhập đầy đủ tên truyện, tác giả và chọn ảnh bìa')
     return
   }
+
   loading.value = true
 
   try {
-    // A. Upload ảnh bìa
+    console.log('3. Đang lấy thông tin User từ Supabase Auth...')
+    const {
+      data: { user },
+      error: authErr,
+    } = await supabase.auth.getUser()
+    console.log('👉 User trả về:', user, '| Auth Error:', authErr)
+    if (authErr || !user) throw new Error('Cần đăng nhập để đăng truyện')
+
+    console.log('4. Đang upload ảnh lên Storage...')
     const fileName = `covers/${Date.now()}-${generateSlug(mangaForm.value.title)}.jpg`
     const { error: uploadErr } = await supabase.storage
       .from('manga-covers')
       .upload(fileName, coverFile.value)
+    console.log('👉 Upload Error:', uploadErr)
     if (uploadErr) throw uploadErr
 
+    console.log('5. Đang lấy link ảnh public...')
     const { data: publicUrlData } = supabase.storage.from('manga-covers').getPublicUrl(fileName)
+    console.log('👉 Link ảnh:', publicUrlData.publicUrl)
 
-    // B. Insert vào DB
-    const { data, error } = await supabase
-      .from('mangas')
-      .insert([
-        {
-          title: mangaForm.value.title,
-          description: mangaForm.value.description,
-          slug: generateSlug(mangaForm.value.title),
-          thumbnail_url: publicUrlData.publicUrl,
-        },
-      ])
-      .select('id')
-      .single()
+    const insertData = {
+      title: mangaForm.value.title,
+      description: mangaForm.value.description,
+      slug: generateSlug(mangaForm.value.title),
+      thumbnail_url: publicUrlData.publicUrl,
+      author_id: user.id,
+      author: mangaForm.value.author,
+      status: mangaForm.value.status,
+    }
+    console.log('6. Dữ liệu chuẩn bị Insert vào Database:', insertData)
 
+    const { data, error } = await supabase.from('mangas').insert([insertData]).select('id').single()
+
+    console.log('👉 Kết quả Insert DB - Data:', data, '| Error:', error)
     if (error) throw error
 
+    console.log('✅ 7. THÀNH CÔNG TRỌN VẸN!')
     mangaId.value = data.id
     currentStep.value = 1
+    message.success('Tạo truyện thành công!')
   } catch (err) {
-    message.error('Lỗi tạo truyện: ' + err.message)
+    console.error('🔥 LỖI BẮT ĐƯỢC (CATCH):', err)
+    message.error('Lỗi: ' + (err.message || 'Không thể tạo truyện'))
   } finally {
+    console.log('🛑 --- KẾT THÚC (TẮT LOADING) ---')
     loading.value = false
   }
 }
@@ -79,31 +110,33 @@ const handleCreateChapter = async () => {
   }
   loading.value = true
 
-  const { data, error } = await supabase
-    .from('chapters')
-    .insert([
-      {
-        manga_id: mangaId.value,
-        chapter_name: chapterForm.value.name,
-        chapter_number: chapterForm.value.number,
-      },
-    ])
-    .select('id')
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('chapters')
+      .insert([
+        {
+          manga_id: mangaId.value,
+          chapter_name: chapterForm.value.name,
+          chapter_number: chapterForm.value.number,
+        },
+      ])
+      .select('id')
+      .single()
 
-  if (error) {
-    message.error('Lỗi tạo chương')
+    if (error) throw error
+
+    chapterId.value = data.id
+    currentStep.value = 2
+  } catch (err) {
+    message.error('Lỗi tạo chương: ' + (err.message || 'Lỗi không xác định'))
+  } finally {
     loading.value = false
-    return
   }
-  chapterId.value = data.id
-  currentStep.value = 2
-  loading.value = false
 }
 
 // 3. Upload ảnh chương (Batch)
 const handleUpload = async () => {
-  if (fileList.value.length === 0) return message.warning('Vui lòng chọn ảnh cho chương này')
+  if (fileList.value.length === 0) return message.warning('Vui lòng chọn ảnh')
   loading.value = true
 
   try {
@@ -139,7 +172,6 @@ const sanitizeFileName = (name) => {
     .toLowerCase()
 }
 
-// Xử lý xem trước ảnh bìa
 const handleCoverChange = (e) => {
   const file = e.target.files[0]
   if (file) {
@@ -183,9 +215,6 @@ const handleCoverChange = (e) => {
         >
           <span class="text-3xl drop-shadow-sm">🚀</span> Đăng Truyện Mới
         </h2>
-        <p class="text-gray-500 dark:text-gray-400 font-medium mt-2">
-          Hoàn thành 3 bước dưới đây để đưa tác phẩm lên hệ thống
-        </p>
       </div>
 
       <div class="relative flex items-center justify-between w-full max-w-2xl mx-auto mb-12 px-4">
@@ -210,9 +239,10 @@ const handleCoverChange = (e) => {
                 : 'bg-gray-100 dark:bg-slate-800 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-slate-700',
             ]"
           >
+            <span v-if="currentStep <= index">{{ index + 1 }}</span>
             <svg
-              v-if="currentStep > index"
-              class="w-5 h-5"
+              v-else
+              class="w-5 h-5 text-white"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -224,7 +254,6 @@ const handleCoverChange = (e) => {
                 d="M5 13l4 4L19 7"
               ></path>
             </svg>
-            <span v-else>{{ index + 1 }}</span>
           </div>
           <span
             :class="[
@@ -233,27 +262,53 @@ const handleCoverChange = (e) => {
                 ? 'text-indigo-600 dark:text-indigo-400'
                 : 'text-gray-400 dark:text-gray-500',
             ]"
+            >{{ step }}</span
           >
-            {{ step }}
-          </span>
         </div>
       </div>
 
       <div
         v-if="currentStep === 0"
-        class="max-w-2xl mx-auto space-y-6 animate-in slide-in-from-right-4 duration-300"
+        class="max-w-2xl mx-auto space-y-5 animate-in slide-in-from-right-4 duration-300"
       >
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div>
+            <label
+              class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2"
+              >Tên truyện</label
+            >
+            <input
+              v-model="mangaForm.title"
+              type="text"
+              placeholder="Nhập tên tác phẩm..."
+              class="input-style"
+            />
+          </div>
+          <div>
+            <label
+              class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2"
+              >Tác giả</label
+            >
+            <input
+              v-model="mangaForm.author"
+              type="text"
+              placeholder="Tên tác giả..."
+              class="input-style"
+            />
+          </div>
+        </div>
+
         <div>
           <label
             class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2"
-            >Tên truyện</label
+            >Tình trạng truyện</label
           >
-          <input
-            v-model="mangaForm.title"
-            type="text"
-            placeholder="Nhập tên tác phẩm..."
-            class="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
-          />
+          <a-radio-group v-model:value="mangaForm.status" button-style="solid" class="flex gap-3">
+            <a-radio-button value="ongoing" class="rounded-lg">Đang ra</a-radio-button>
+            <a-radio-button value="completed" class="rounded-lg overflow-hidden"
+              >Hoàn thành</a-radio-button
+            >
+          </a-radio-group>
         </div>
 
         <div>
@@ -265,7 +320,7 @@ const handleCoverChange = (e) => {
             v-model="mangaForm.description"
             rows="4"
             placeholder="Giới thiệu ngắn về cốt truyện..."
-            class="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium resize-none"
+            class="input-style resize-none"
           ></textarea>
         </div>
 
@@ -280,9 +335,9 @@ const handleCoverChange = (e) => {
               @click="$refs.fileInput.click()"
             >
               <img v-if="coverPreview" :src="coverPreview" class="w-full h-full object-cover" />
-              <div v-else class="text-center p-2">
+              <div v-else class="text-center p-2 text-gray-400">
                 <svg
-                  class="w-8 h-8 text-gray-400 mx-auto mb-1"
+                  class="w-8 h-8 mx-auto mb-1"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -294,13 +349,6 @@ const handleCoverChange = (e) => {
                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                   ></path>
                 </svg>
-                <span class="text-[10px] text-gray-500 font-medium">Chọn ảnh</span>
-              </div>
-              <div
-                v-if="coverPreview"
-                class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold"
-              >
-                Đổi ảnh
               </div>
             </div>
             <div class="flex-1">
@@ -311,12 +359,9 @@ const handleCoverChange = (e) => {
                 accept="image/*"
                 class="hidden"
               />
-              <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                Hỗ trợ định dạng JPG, PNG. Kích thước tối ưu 400x600px.
-              </p>
               <button
                 @click="$refs.fileInput.click()"
-                class="px-4 py-2 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-bold hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors border border-gray-200 dark:border-slate-700"
+                class="px-4 py-2 bg-gray-100 dark:bg-slate-800 rounded-lg text-sm font-bold border border-gray-200 dark:border-slate-700"
               >
                 Tải ảnh lên
               </button>
@@ -325,14 +370,10 @@ const handleCoverChange = (e) => {
         </div>
 
         <div class="pt-6 flex justify-end">
-          <button
-            @click="handleCreateManga"
-            :disabled="loading"
-            class="px-8 py-3.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2"
-          >
+          <button @click="handleCreateManga" :disabled="loading" class="btn-primary">
             <svg
               v-if="loading"
-              class="animate-spin w-5 h-5"
+              class="animate-spin w-5 h-5 mr-2"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -345,37 +386,19 @@ const handleCoverChange = (e) => {
               ></path>
             </svg>
             {{ loading ? 'Đang khởi tạo...' : 'Tạo Truyện & Tiếp tục' }}
-            <svg
-              v-if="!loading"
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
           </button>
         </div>
       </div>
 
-      <div
-        v-if="currentStep === 1"
-        class="max-w-2xl mx-auto space-y-6 animate-in slide-in-from-right-4 duration-300"
-      >
+      <div v-if="currentStep === 1" class="max-w-2xl mx-auto space-y-6">
         <div
           class="p-4 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl mb-6"
         >
           <p class="text-sm text-indigo-800 dark:text-indigo-300 font-medium">
             Truyện <strong class="font-black">"{{ mangaForm.title }}"</strong> đã được tạo thành
-            công! Khởi tạo chương đầu tiên để tiếp tục.
+            công!
           </p>
         </div>
-
         <div>
           <label
             class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2"
@@ -385,115 +408,33 @@ const handleCoverChange = (e) => {
             v-model="chapterForm.name"
             type="text"
             placeholder="VD: Chương 1: Khởi đầu..."
-            class="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
+            class="input-style"
           />
         </div>
-
         <div>
           <label
             class="block text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-2"
             >Số thứ tự chương</label
           >
-          <input
-            v-model="chapterForm.number"
-            type="number"
-            min="1"
-            class="w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium"
-          />
+          <input v-model="chapterForm.number" type="number" min="1" class="input-style" />
         </div>
-
         <div class="pt-6 flex justify-end">
-          <button
-            @click="handleCreateChapter"
-            :disabled="loading"
-            class="px-8 py-3.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-2"
-          >
-            <svg
-              v-if="loading"
-              class="animate-spin w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              ></path>
-            </svg>
-            {{ loading ? 'Đang xử lý...' : 'Tạo Chương & Tiếp tục' }}
-            <svg
-              v-if="!loading"
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 5l7 7-7 7"
-              ></path>
-            </svg>
+          <button @click="handleCreateChapter" :disabled="loading" class="btn-primary">
+            Tiếp theo
           </button>
         </div>
       </div>
 
-      <div
-        v-if="currentStep === 2"
-        class="max-w-3xl mx-auto animate-in slide-in-from-right-4 duration-300"
-      >
+      <div v-if="currentStep === 2" class="max-w-3xl mx-auto">
         <div class="upload-custom-wrapper">
-          <a-upload-dragger
-            v-model:fileList="fileList"
-            :before-upload="() => false"
-            multiple
-            class="custom-dragger"
-          >
-            <p class="ant-upload-drag-icon">
-              <InboxOutlined class="text-indigo-500 dark:text-indigo-400" />
-            </p>
-            <p class="ant-upload-text dark:text-white font-bold text-lg">
-              Kéo thả toàn bộ ảnh của chương vào đây
-            </p>
-            <p class="ant-upload-hint dark:text-gray-400">
-              Hỗ trợ upload nhiều file cùng lúc. Các file sẽ được sắp xếp theo tên (Hãy đánh số thứ
-              tự 01, 02... cho tên file để đảm bảo đúng trang).
-            </p>
+          <a-upload-dragger v-model:fileList="fileList" :before-upload="() => false" multiple>
+            <p class="ant-upload-drag-icon"><InboxOutlined class="text-indigo-500" /></p>
+            <p class="ant-upload-text dark:text-white font-bold">Kéo thả ảnh của chương vào đây</p>
           </a-upload-dragger>
         </div>
-
         <div class="pt-8 flex justify-center">
-          <button
-            @click="handleUpload"
-            :disabled="loading"
-            class="px-10 py-4 rounded-xl font-black text-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-xl shadow-emerald-500/30 transition-all disabled:opacity-50 active:scale-95 flex items-center gap-3 w-full justify-center md:w-auto"
-          >
-            <svg
-              v-if="loading"
-              class="animate-spin w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              ></path>
-            </svg>
-            <svg v-else class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              ></path>
-            </svg>
-            {{ loading ? 'Đang tải ảnh lên server...' : 'Xuất Bản Truyện' }}
+          <button @click="handleUpload" :disabled="loading" class="btn-primary w-full md:w-auto">
+            Xuất Bản Truyện
           </button>
         </div>
       </div>
@@ -502,27 +443,13 @@ const handleCoverChange = (e) => {
 </template>
 
 <style scoped>
-/* Xử lý hiển thị Dark Mode cho Ant Design Dragger */
+.input-style {
+  @apply w-full px-4 py-3.5 rounded-xl border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-medium;
+}
+.btn-primary {
+  @apply px-8 py-3.5 rounded-xl font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/30 transition-all disabled:opacity-50 flex items-center gap-2;
+}
 .upload-custom-wrapper :deep(.ant-upload-drag) {
-  background-color: transparent !important;
-  border: 2px dashed #cbd5e1 !important;
-  border-radius: 1rem !important;
-  transition: all 0.3s;
-}
-html.dark .upload-custom-wrapper :deep(.ant-upload-drag) {
-  border-color: #475569 !important;
-}
-html.dark .upload-custom-wrapper :deep(.ant-upload-drag):hover {
-  border-color: #818cf8 !important;
-  background-color: rgba(30, 41, 59, 0.5) !important;
-}
-.upload-custom-wrapper :deep(.ant-upload-list-item) {
-  border-radius: 0.5rem;
-}
-html.dark .upload-custom-wrapper :deep(.ant-upload-list-item) {
-  color: #e2e8f0;
-}
-html.dark .upload-custom-wrapper :deep(.ant-upload-list-item:hover) {
-  background-color: #334155;
+  @apply bg-transparent border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-2xl transition-all;
 }
 </style>

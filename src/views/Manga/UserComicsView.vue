@@ -66,7 +66,14 @@ onMounted(fetchLocalMangas)
             Góc Sáng Tác
           </h2>
           <p class="text-sm font-medium text-gray-500 dark:text-gray-400">
-            Những tác phẩm độc quyền do cộng đồng tự do đăng tải
+            Những tác phẩm độc quyền do cộng đồng tự do đăng tải (Bạn muốn chia sẻ tác phẩm của
+            mình? Hãy liên hệ với chúng tôi qua trang
+            <router-link
+              to="/contact"
+              class="text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 font-semibold"
+              >LIÊN HỆ</router-link
+            >
+            để được hỗ trợ đăng tải nhé!)
           </p>
         </div>
       </div>
