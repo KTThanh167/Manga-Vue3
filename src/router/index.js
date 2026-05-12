@@ -135,6 +135,17 @@ const router = createRouter({
           name: 'privacy',
           component: () => import('@/views/Help/PrivacyView.vue'),
         },
+        {
+          path: '/',
+          component: EmptyLayout,
+          children: [
+            {
+              path: 'search',
+              name: 'search',
+              component: () => import('../views/Search/SearchView.vue'),
+            },
+          ],
+        },
       ],
     },
 
@@ -161,17 +172,6 @@ const router = createRouter({
       ],
     },
     // --- CỤM 3: CÁC TRANG DÙNG EMPTY LAYOUT ---
-    {
-      path: '/',
-      component: EmptyLayout,
-      children: [
-        {
-          path: 'search',
-          name: 'search',
-          component: () => import('../views/Search/SearchView.vue'),
-        },
-      ],
-    },
   ],
 })
 
