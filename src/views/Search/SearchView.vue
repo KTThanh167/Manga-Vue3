@@ -157,6 +157,7 @@ const resetFilters = () => {
     </div>
 
     <SearchBanner
+      class="relative z-50"
       v-model="keyword"
       :suggestions="homeStore.searchSuggestions"
       :showSuggestions="showSuggestions"

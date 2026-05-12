@@ -10,17 +10,19 @@ const emit = defineEmits(['update:modelValue', 'search', 'selectSuggestion', 'fo
 </script>
 
 <template>
-  <div
-    class="relative mb-12 rounded-[2rem] p-6 md:p-12 text-center shadow-2xl shadow-indigo-500/20 dark:shadow-indigo-900/20 overflow-hidden transition-colors duration-500 bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-800 dark:from-indigo-900 dark:via-purple-900 dark:to-slate-900"
-  >
+  <div class="relative mb-12 p-6 md:p-12 text-center rounded-[2rem]">
     <div
-      class="absolute top-0 left-1/4 w-72 h-72 bg-white/20 dark:bg-indigo-500/20 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"
-    ></div>
-    <div
-      class="absolute -bottom-10 -right-10 w-64 h-64 bg-pink-500/30 dark:bg-purple-500/30 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"
-    ></div>
+      class="absolute inset-0 rounded-[2rem] overflow-hidden shadow-2xl shadow-indigo-500/20 dark:shadow-indigo-900/20 bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-800 dark:from-indigo-900 dark:via-purple-900 dark:to-slate-900 transition-colors duration-500"
+    >
+      <div
+        class="absolute top-0 left-1/4 w-72 h-72 bg-white/20 dark:bg-indigo-500/20 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"
+      ></div>
+      <div
+        class="absolute -bottom-10 -right-10 w-64 h-64 bg-pink-500/30 dark:bg-purple-500/30 rounded-full blur-[80px] pointer-events-none mix-blend-overlay"
+      ></div>
+    </div>
 
-    <div class="relative z-10">
+    <div class="relative z-20">
       <h2
         class="text-white text-2xl md:text-4xl font-black mb-8 uppercase tracking-tight drop-shadow-md"
       >
