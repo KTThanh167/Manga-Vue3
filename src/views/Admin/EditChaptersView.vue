@@ -90,7 +90,11 @@ const handleUpdate = async () => {
       }
 
       const file = item.originFileObj
-      const fileName = `${Date.now()}_${i}.${file.name.split('.').pop()}`
+      const cleanOriginalName = file.name
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9.-]/g, '_')
+      const fileName = `${Date.now()}_${i}_${cleanOriginalName}`
       const filePath = `manga_${form.value.manga_id}/chapter_${chapterId}/${fileName}`
 
       const { error: stErr } = await supabase.storage.from('chapters-data').upload(filePath, file)
@@ -123,7 +127,18 @@ const handleUpdate = async () => {
 }
 
 const beforeUpload = (file) => {
-  fileList.value = [...fileList.value, file]
+  const previewUrl = URL.createObjectURL(file)
+
+  const newFileItem = {
+    uid: `temp-${Date.now()}-${Math.random()}`,
+    name: file.name,
+    status: 'done',
+    url: previewUrl,
+    isOld: false,
+    originFileObj: file,
+  }
+
+  fileList.value = [...fileList.value, newFileItem]
   return false
 }
 
@@ -301,10 +316,7 @@ const handleRemove = (file) => {
 
                   <div class="aspect-[3/4] w-full bg-gray-200 dark:bg-slate-800 overflow-hidden">
                     <img
-                      :src="
-                        element.url ||
-                        (element.originFileObj ? URL.createObjectURL(element.originFileObj) : '')
-                      "
+                      :src="element.url"
                       draggable="false"
                       class="w-full h-full object-cover transition-transform group-hover:scale-105 pointer-events-none"
                     />
