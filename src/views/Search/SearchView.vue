@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, nextTick } from 'vue'
 import { useHomeStore } from '@/stores/home'
 import { useMangaStore } from '@/stores/manga'
 import { useRoute, useRouter } from 'vue-router'
@@ -42,13 +42,14 @@ onMounted(async () => {
   }
 })
 
-// Theo dõi thay đổi URL
+// Theo dõi thay đổi URL (NƠI ĐẶT LOGIC SCROLL MỚI)
 watch(
   () => route.query,
   async (newQuery) => {
     const qPage = parseInt(newQuery.page) || 1
     homeStore.currentPage = qPage
 
+    // 1. CHỜ API TẢI DỮ LIỆU XONG
     if (newQuery.category) {
       selectedCategory.value = newQuery.category
       await homeStore.filterByCategory(newQuery.category, qPage)
@@ -56,6 +57,22 @@ watch(
       keyword.value = newQuery.q
       await homeStore.searchMangas(newQuery.q, qPage)
     }
+
+    // 2. KHI TẢI XONG -> GIAO DIỆN DÀI RA -> BẮT ĐẦU CUỘN LÊN TOP
+    nextTick(() => {
+      setTimeout(() => {
+        const topElement = document.getElementById('top-page')
+        if (topElement) {
+          topElement.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start',
+          })
+        } else {
+          // Fallback dự phòng trong trường hợp ID bị xóa mất
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      }, 50)
+    })
   },
 )
 
@@ -79,34 +96,26 @@ const startSearch = (page = 1) => {
   selectedCategory.value = ''
   showSuggestions.value = false
   updateURL({ q: keyword.value, category: undefined, page: page > 1 ? page : undefined })
-  homeStore.searchMangas(keyword.value, page)
 }
 
-// Hành động chọn Thể loại
+// Hành động chọn Thể loại (Có tính năng Bỏ chọn - Hủy lọc)
 const handleSelectCategory = (slug) => {
+  // Bấm vào thể loại đang chọn -> Hủy lọc
+  if (selectedCategory.value === slug) {
+    resetFilters()
+    return
+  }
+
   selectedCategory.value = slug
   keyword.value = ''
   showSuggestions.value = false
   // Reset về page 1 khi đổi thể loại
   updateURL({ category: slug, q: undefined, page: undefined })
-  homeStore.filterByCategory(slug, 1)
 }
 
 // Xử lý chuyển trang từ Pagination
 const handlePageChange = (page) => {
   updateURL({ page })
-
-  setTimeout(() => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
-
-    document.documentElement.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
-  }, 100)
 }
 
 const selectSuggestion = (manga) => {
@@ -117,21 +126,31 @@ const selectSuggestion = (manga) => {
 const resetFilters = () => {
   keyword.value = ''
   selectedCategory.value = ''
-  startSearch(1)
+  updateURL({ q: undefined, category: undefined, page: undefined })
 }
 </script>
 
 <template>
-  <div class="p-4 md:p-6 max-w-7xl mx-auto">
-    <div class="mb-4 flex">
+  <div
+    id="top-page"
+    class="p-4 md:p-6 max-w-7xl mx-auto min-h-screen transition-colors duration-500"
+  >
+    <div class="mb-6 flex">
       <router-link
         to="/"
-        class="flex items-center gap-2 text-gray-500 hover:text-indigo-600 transition-colors group"
+        class="inline-flex items-center gap-3 px-4 py-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-full text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 border border-gray-200 dark:border-slate-800 transition-all hover:shadow-md hover:-translate-x-1 group"
       >
         <div
-          class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center group-hover:bg-indigo-100 transition-all"
+          class="w-8 h-8 rounded-full bg-gray-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-all"
         >
-          <font-awesome-icon icon="fa-solid fa-house" />
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M10 19l-7-7m0 0l7-7m-7 7h18"
+            ></path>
+          </svg>
         </div>
         <span class="text-sm font-bold">Quay về trang chủ</span>
       </router-link>
@@ -153,24 +172,44 @@ const resetFilters = () => {
       @select="handleSelectCategory"
     />
 
-    <div class="min-h-[400px]">
+    <div class="min-h-[400px] relative">
       <div
         v-if="homeStore.isSearching"
-        class="flex flex-col justify-center items-center py-32 gap-4"
+        class="absolute inset-0 z-10 flex flex-col justify-center items-center py-32 gap-4 bg-gray-50/50 dark:bg-slate-950/50 backdrop-blur-sm rounded-3xl"
       >
         <div class="relative w-16 h-16">
-          <div class="absolute inset-0 rounded-full border-4 border-indigo-50"></div>
           <div
-            class="absolute inset-0 rounded-full border-4 border-t-indigo-600 animate-spin"
+            class="absolute inset-0 rounded-full border-4 border-indigo-100 dark:border-slate-800"
+          ></div>
+          <div
+            class="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"
           ></div>
         </div>
-        <p class="text-gray-400 animate-pulse font-bold tracking-widest text-xs uppercase">
+        <p
+          class="text-indigo-600 dark:text-indigo-400 animate-pulse font-black tracking-widest text-xs uppercase"
+        >
           Đang quét dữ liệu...
         </p>
       </div>
 
       <div v-else>
         <div v-if="homeStore.searchResults?.length > 0">
+          <div v-if="selectedCategory || keyword" class="mb-6 flex items-center gap-3">
+            <span class="w-1.5 h-5 bg-emerald-500 rounded-full"></span>
+            <h3 class="text-lg font-black text-gray-900 dark:text-white">
+              <template v-if="selectedCategory"
+                >Truyện thể loại:
+                <span class="text-indigo-600 dark:text-indigo-400 capitalize">{{
+                  selectedCategory.replace(/-/g, ' ')
+                }}</span></template
+              >
+              <template v-else
+                >Kết quả cho:
+                <span class="text-indigo-600 dark:text-indigo-400">"{{ keyword }}"</span></template
+              >
+            </h3>
+          </div>
+
           <TransitionGroup
             name="list-fade"
             tag="div"
@@ -179,23 +218,25 @@ const resetFilters = () => {
             <MangaCard v-for="manga in homeStore.searchResults" :key="manga._id" :manga="manga" />
           </TransitionGroup>
 
-          <div class="mt-16 flex justify-center">
+          <div class="mt-16 mb-10 flex justify-center">
             <Pagination @change-page="handlePageChange" />
           </div>
         </div>
 
         <div
           v-else-if="keyword || selectedCategory"
-          class="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200"
+          class="text-center py-24 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-gray-200 dark:border-slate-700 shadow-sm"
         >
-          <div class="text-6xl mb-6">🏜️</div>
-          <h3 class="text-xl font-bold text-gray-800 mb-2">Không tìm thấy truyện phù hợp</h3>
-          <p class="text-gray-500 text-sm italic mb-6">
-            Thử đổi từ khóa hoặc chọn thể loại khác xem sao!
+          <div class="text-7xl mb-6 grayscale opacity-80">🏜️</div>
+          <h3 class="text-2xl font-black text-gray-900 dark:text-white mb-3">
+            Không tìm thấy truyện phù hợp
+          </h3>
+          <p class="text-gray-500 dark:text-gray-400 text-sm mb-8 font-medium">
+            Thử đổi từ khóa tìm kiếm hoặc chọn một thể loại khác xem sao!
           </p>
           <button
             @click="resetFilters"
-            class="text-indigo-600 font-bold hover:bg-indigo-50 px-6 py-2 rounded-full transition border border-indigo-100"
+            class="bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-8 py-3.5 rounded-2xl font-bold hover:scale-105 active:scale-95 transition-transform shadow-xl"
           >
             Làm mới bộ lọc
           </button>
@@ -208,13 +249,13 @@ const resetFilters = () => {
 <style scoped>
 /* Hiệu ứng di chuyển mượt mà khi đổi vị trí xếp hạng */
 .list-fade-move {
-  transition: transform 0.5s ease;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Hiệu ứng khi truyện mới xuất hiện hoặc biến mất */
 .list-fade-enter-active,
 .list-fade-leave-active {
-  transition: all 0.4s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .list-fade-enter-from,
 .list-fade-leave-to {

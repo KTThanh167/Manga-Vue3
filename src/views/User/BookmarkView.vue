@@ -6,11 +6,41 @@ import { useRouter } from 'vue-router'
 const mangaStore = useMangaStore()
 const router = useRouter()
 
-// Xử lý link ảnh (Phòng trường hợp API trả về link tương đối hoặc tuyệt đối)
+// Xử lý link ảnh
 const getImageUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http')) return url
   return `https://otruyenapi.com/uploads/comics/${url}`
+}
+
+const formatTimeAgo = (dateString) => {
+  if (!dateString) return 'Chưa rõ'
+  const date = new Date(dateString)
+  const now = new Date()
+  const seconds = Math.floor((now - date) / 1000)
+
+  if (seconds < 60) return 'Vừa xong'
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes} phút trước`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} giờ trước`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days} ngày trước`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} tháng trước`
+
+  return `${Math.floor(days / 365)} năm trước`
+}
+
+// 2. Logic Lấy CHƯƠNG MỚI NHẤT
+const getLatestChapter = (manga) => {
+  if (manga.latest_chapter) return manga.latest_chapter
+
+  const serverData = manga.chapters_latest?.[0]?.server_data
+  if (serverData && serverData.length > 0) {
+    return serverData[serverData.length - 1].chapter_name
+  }
+  return '?'
 }
 
 onMounted(async () => {
@@ -59,35 +89,44 @@ onMounted(async () => {
       <div
         v-for="manga in mangaStore.sortedFollowedMangas"
         :key="manga.slug"
-        @click="router.push(`/truyen/${manga.slug}`)"
-        class="group bg-white/80 dark:bg-slate-900/60 backdrop-blur-xl p-2.5 rounded-2xl hover:bg-white dark:hover:bg-slate-800 cursor-pointer transition-all duration-300 border border-gray-100 dark:border-slate-700/80 shadow-lg hover:shadow-xl hover:-translate-y-1 flex flex-col"
+        @click="router.push(`/truyen/${manga.slug}?isLocal=${manga.is_local}`)"
+        class="group bg-[#1e2332] dark:bg-[#1a1f2e] p-2.5 rounded-xl cursor-pointer hover:bg-[#232939] dark:hover:bg-[#202638] transition-all duration-300 border border-slate-700/50 shadow-lg hover:-translate-y-1 flex flex-col"
       >
-        <div class="relative overflow-hidden rounded-xl aspect-[3/4] shrink-0 bg-indigo-900/50">
+        <div class="relative overflow-hidden rounded-lg aspect-[3/4] shrink-0 bg-slate-800">
           <img
             :src="getImageUrl(manga.thumb_url)"
-            class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
             :alt="manga.name"
             loading="lazy"
           />
 
           <div
-            class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-70"
+            class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-80"
           ></div>
 
           <div
-            v-if="manga.latest_chapter || (manga.chaptersLatest && manga.chaptersLatest.length > 0)"
-            class="absolute bottom-2 right-2 bg-indigo-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-sm shadow-lg z-10 border border-white/10"
+            v-if="manga.updated_at"
+            class="absolute top-2 right-2 bg-black/80 text-gray-200 text-[10px] font-bold px-2 py-1.5 rounded-md backdrop-blur-sm z-10 shadow-sm border border-white/5"
           >
-            Chương {{ manga.latest_chapter || manga.chaptersLatest[0]?.chapter_name }}
+            {{ formatTimeAgo(manga.updated_at) }}
           </div>
         </div>
 
-        <div class="flex-1 flex items-center justify-center mt-3 mb-1 px-1">
-          <p
-            class="text-[13px] font-bold line-clamp-2 text-center text-gray-900 dark:text-white leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors"
-          >
+        <div class="flex-1 flex flex-col justify-between mt-3 px-1">
+          <p class="text-[14px] font-bold line-clamp-2 text-white leading-snug mb-3">
             {{ manga.name || manga.title }}
           </p>
+
+          <div
+            class="bg-[#282f40] dark:bg-[#283042] rounded-lg px-3 py-2 flex justify-between items-center border border-slate-600/30"
+          >
+            <span class="text-xs font-bold text-gray-300">
+              Chương {{ getLatestChapter(manga) }}
+            </span>
+            <span
+              class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]"
+            ></span>
+          </div>
         </div>
       </div>
     </div>
