@@ -51,7 +51,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import axios from 'axios'
 import { supabase } from '@/lib/supabaseClient'
@@ -66,6 +66,12 @@ const mangaStore = useMangaStore()
 
 const fetchMangaDetail = async () => {
   loading.value = true
+  manga.value = null
+
+  if (mangaStore) {
+    mangaStore.isFollowed = false
+  }
+
   const slug = route.params.slug
   const isLocal = route.query.isLocal === 'true'
 
@@ -76,14 +82,18 @@ const fetchMangaDetail = async () => {
         .select('*')
         .eq('slug', slug)
         .maybeSingle()
+
       if (mangaError) throw mangaError
+
       if (mangaData) {
         const { data: chaptersData, error: chaptersError } = await supabase
           .from('chapters')
           .select('*')
           .eq('manga_id', mangaData.id)
           .order('chapter_number', { ascending: false })
+
         if (chaptersError) console.error('Lỗi lấy chương:', chaptersError)
+
         manga.value = {
           ...mangaData,
           name: mangaData.title,
@@ -110,10 +120,14 @@ const fetchMangaDetail = async () => {
       manga.value = res.data.data.item
     }
     if (manga.value) {
-      await Promise.all([mangaStore.checkFollowStatus(slug), mangaStore.fetchLastRead(slug)])
+      Promise.all([mangaStore.checkFollowStatus(slug), mangaStore.fetchLastRead(slug)]).catch(
+        (err) => {
+          console.error('🔥 Lỗi khi lấy lịch sử từ Store:', err)
+        },
+      )
     }
   } catch (err) {
-    console.error('Lỗi load chi tiết:', err)
+    console.error('🔥 [LỖI] Bắt được lỗi:', err)
   } finally {
     loading.value = false
   }
@@ -121,6 +135,15 @@ const fetchMangaDetail = async () => {
 
 onMounted(async () => {
   await fetchMangaDetail()
-  await mangaStore.checkFollowStatus(route.params.slug)
 })
+
+// BÁM SÁT ROUTE: Lắng nghe sự thay đổi của slug trên URL
+watch(
+  () => route.params.slug,
+  async (newSlug, oldSlug) => {
+    if (newSlug && newSlug !== oldSlug) {
+      await fetchMangaDetail()
+    }
+  },
+)
 </script>
