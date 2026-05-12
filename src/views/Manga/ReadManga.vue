@@ -236,16 +236,38 @@ const changeChapter = async (offset) => {
   }
 
   scrollToTop()
+
   try {
     loading.value = true
+
     if (isLocal) {
-      const { data } = await supabase
+      // 1. Tìm manga_id dựa trên slug đang có trên URL
+      const { data: mangaData, error: mangaErr } = await supabase
+        .from('mangas')
+        .select('id')
+        .eq('slug', route.params.slug)
+        .single()
+
+      if (mangaErr || !mangaData) {
+        throw new Error('Không tìm thấy thông tin truyện trong cơ sở dữ liệu!')
+      }
+
+      // 2. Dùng manga_id để truy vấn chương tiếp theo/trước đó
+      const { data: chapterData, error: chapterErr } = await supabase
         .from('chapters')
         .select('id')
-        .eq('manga_slug', route.params.slug)
+        .eq('manga_id', mangaData.id) // Query chuẩn xác theo ID
         .eq('chapter_number', nextChapterNum)
         .maybeSingle()
-      if (data) {
+
+      // Bắt lỗi rành mạch để dễ debug nếu có
+      if (chapterErr) {
+        console.error('Lỗi truy vấn Supabase:', chapterErr)
+        throw chapterErr
+      }
+
+      // 3. Xử lý chuyển trang
+      if (chapterData) {
         router.push({
           name: 'ReadManga',
           params: { slug: route.params.slug, chapter: nextChapterNum },
@@ -255,12 +277,14 @@ const changeChapter = async (offset) => {
         message.warning(offset > 0 ? 'Bạn đã đọc đến chương mới nhất!' : 'Đây là chương đầu tiên!')
       }
     } else {
+      // Xử lý cho truyện API (Vẫn giữ nguyên, hoạt động tốt)
       const listRes = await axios.get(
         `https://otruyenapi.com/v1/api/truyen-tranh/${route.params.slug}`,
       )
       const nextChapter = listRes.data.data.item.chapters[0].server_data.find(
         (ch) => parseInt(ch.chapter_name) === nextChapterNum,
       )
+
       if (nextChapter?.chapter_api_data) {
         router.push({
           name: 'ReadManga',
@@ -268,11 +292,11 @@ const changeChapter = async (offset) => {
           query: { api: nextChapter.chapter_api_data },
         })
       } else {
-        message.warning('Chương này chưa được cập nhật trên hệ thống!')
+        message.warning('Bạn đã đọc đến chương mới nhất!')
       }
     }
   } catch (err) {
-    console.error('Error changing chapter:', err)
+    console.error('Lỗi chuyển chương:', err)
     message.error('Có lỗi xảy ra khi chuyển chương, vui lòng thử lại!')
   } finally {
     loading.value = false
