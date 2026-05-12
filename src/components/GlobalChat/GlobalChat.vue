@@ -233,7 +233,7 @@ onUnmounted(() => {
                 ]"
               >
                 <button
-                  v-for="e in ['❤️', '😂', '🔥', '👍']"
+                  v-for="e in ['❤️', '😂', '🔥', '👍', '😭', '😠']"
                   :key="e"
                   @click="toggleReaction(msg.id, e)"
                   class="hover:scale-125 transition-transform text-sm transform active:scale-90"
