@@ -9,21 +9,41 @@ const loading = ref(true)
 const fetchLocalMangas = async () => {
   loading.value = true
   try {
+    // 1. CẬP NHẬT CÂU QUERY: Nối thêm bảng chapters để lấy chapter_number
     const { data, error } = await supabase
       .from('mangas')
-      .select('*')
+      .select(
+        `
+        *,
+        chapters (
+          chapter_name,
+          chapter_number
+        )
+      `,
+      )
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    localMangas.value = (data || []).map((item) => ({
-      _id: item.id,
-      name: item.title,
-      slug: item.slug,
-      thumb_url: item.thumbnail_url,
-      content: item.description,
-      isLocal: true,
-    }))
+    // 2. CẬP NHẬT MAP DỮ LIỆU: Thêm author và tìm latest_chapter
+    localMangas.value = (data || []).map((item) => {
+      // Sắp xếp các chương từ lớn đến bé để lấy chương to nhất (mới nhất)
+      const sortedChapters =
+        item.chapters && item.chapters.length > 0
+          ? [...item.chapters].sort((a, b) => b.chapter_number - a.chapter_number)
+          : []
+
+      return {
+        _id: item.id,
+        name: item.title,
+        slug: item.slug,
+        thumb_url: item.thumbnail_url, // (Hoặc item.thubnail_url tùy theo tên cột chuẩn trong DB của bạn)
+        content: item.description,
+        isLocal: true,
+        author: item.author, // Đã bổ sung Tác giả
+        latest_chapter: sortedChapters[0], // Đã bổ sung Chương mới nhất
+      }
+    })
   } catch (err) {
     console.error('Lỗi lấy truyện nội bộ:', err)
   } finally {
