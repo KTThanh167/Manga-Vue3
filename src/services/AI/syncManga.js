@@ -23,7 +23,6 @@ export const sync50Mangas = async () => {
       return false
     }
 
-    // Lọc ra đúng những model có chức năng tạo Vector (embedContent)
     const embedModels = checkData.models.filter((m) =>
       m.supportedGenerationMethods?.includes('embedContent'),
     )
@@ -34,17 +33,16 @@ export const sync50Mangas = async () => {
     )
 
     if (embedModels.length === 0) {
-      console.error(
-        '⛔ TOANG RỒI! API Key này KHÔNG CÓ QUYỀN dùng bất kỳ model Vector nào của Google. Giải pháp duy nhất: Dùng Gmail khác đăng nhập Google AI Studio và tạo Key mới.',
-      )
+      console.error('⛔ Lỗi: API Key này không có quyền dùng model Vector.')
       return false
     }
 
-    // Tự động gắp luôn cái model cuối cùng (thường là mới nhất) trong danh sách để xài
     const targetModelName = embedModels[embedModels.length - 1].name
-    console.log(`✅ Google đã cấp phép. Bắt đầu chạy với model: ${targetModelName}`)
-    // ==========================================
+    console.log(`✅ Chạy với model: ${targetModelName}`)
 
+    // ==========================================
+    // BƯỚC 2: LẤY DANH SÁCH TRUYỆN
+    // ==========================================
     console.log('Bắt đầu gọi API Otruyen để gom đủ 50 truyện...')
 
     let allItems = []
@@ -62,7 +60,7 @@ export const sync50Mangas = async () => {
     }
 
     const itemsToProcess = allItems.slice(0, 50)
-    console.log(`Đã gom đủ ${itemsToProcess.length} truyện. Bắt đầu nạp cho AI...`)
+    console.log(`Đã gom đủ ${itemsToProcess.length} truyện. Bắt đầu nạp dữ liệu...`)
 
     for (const item of itemsToProcess) {
       try {
@@ -76,6 +74,7 @@ export const sync50Mangas = async () => {
 
         if (!manga) continue
 
+        // Xử lý thông tin text và chapter
         const categoryText = manga.category
           ? manga.category.map((c) => c.name).join(', ')
           : 'Chưa cập nhật'
@@ -84,8 +83,14 @@ export const sync50Mangas = async () => {
           : 'Không có mô tả'
         const textToEmbed = `${manga.name}. Thể loại: ${categoryText}. Nội dung: ${contentText}`
 
+        // Tính tổng số chapter từ tập dữ liệu server_data
+        const chapterCount =
+          manga.chapters && manga.chapters.length > 0 && manga.chapters[0].server_data
+            ? manga.chapters[0].server_data.length
+            : 0
+
         // ==========================================
-        // BƯỚC 2: GỌI API BẰNG CHÍNH MODEL GOOGLE VỪA CẤP
+        // BƯỚC 3: TẠO VECTOR EMBEDDING
         // ==========================================
         const aiResponse = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/${targetModelName}:embedContent?key=${apiKey}`,
@@ -94,7 +99,6 @@ export const sync50Mangas = async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               content: { parts: [{ text: textToEmbed }] },
-              // Không truyền outputDimensionality nữa để AI trả về mặc định
             }),
           },
         )
@@ -102,18 +106,16 @@ export const sync50Mangas = async () => {
         const aiData = await aiResponse.json()
 
         if (!aiResponse.ok) {
-          console.error(`❌ Lỗi API với truyện [${item.slug}]:`, aiData.error?.message || aiData)
+          console.error(`❌ Lỗi API Embedding [${item.slug}]:`, aiData.error?.message || aiData)
           continue
         }
 
         const embedding = aiData.embedding.values
-
-        // ==========================================
-        // BƯỚC 3: LƯU VÀO SUPABASE VÀ ÉP CÂN NẾU CẦN
-        // ==========================================
-        // Nếu API dở chứng trả về 3072 chiều, ta dùng JS cắt gọn nó xuống 768 chiều trước khi lưu!
         const finalVector = embedding.length > 768 ? embedding.slice(0, 768) : embedding
 
+        // ==========================================
+        // BƯỚC 4: LƯU VÀO SUPABASE (Đã thêm genres và chapter_count)
+        // ==========================================
         const { error } = await supabase.from('manga_ai').upsert(
           {
             slug: manga.slug,
@@ -123,6 +125,8 @@ export const sync50Mangas = async () => {
               ? `https://otruyenapi.com/uploads/comics/${manga.thumb_url}`
               : '',
             embedding: finalVector,
+            genres: categoryText, // Lưu metadata thể loại
+            chapter_count: chapterCount, // Lưu metadata số chương
           },
           { onConflict: 'slug' },
         )
@@ -130,16 +134,17 @@ export const sync50Mangas = async () => {
         if (error) {
           console.error(`❌ Lỗi lưu Supabase [${manga.name}]:`, error.message)
         } else {
-          console.log(`✅ Đã nạp xong: ${manga.name}`)
+          console.log(`✅ Đã nạp xong: ${manga.name} (${chapterCount} chương)`)
         }
       } catch (innerErr) {
-        console.error(`❌ Lỗi bất ngờ:`, innerErr)
+        console.error(`❌ Lỗi tại truyện ${item.slug}:`, innerErr)
       }
 
-      await delay(3000)
+      // Delay để tránh bị rate limit API
+      await delay(2000)
     }
 
-    console.log('🎉 Đã hoàn thành tiến trình nạp 50 truyện!')
+    console.log('🎉 Đã hoàn thành cập nhật 50 truyện với đầy đủ Metadata!')
     return true
   } catch (error) {
     console.error('Lỗi tổng:', error)

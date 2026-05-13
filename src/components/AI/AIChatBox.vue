@@ -190,87 +190,156 @@ const sendMessage = async () => {
     if (!rawKey) throw new Error('Thiếu API Key')
     const apiKey = rawKey.trim()
 
-    // Sử dụng model mới nhất mà bạn đã dò được
     const embedModel = 'gemini-embedding-2'
-    const chatModel = 'gemini-2.5-flash'
+    const chatModel = 'gemini-2.5-flash' // Model xịn nhất bạn đã dò ra
 
-    // --- TRẠM 1: Bắt đầu lấy Vector ---
-    console.log('1. Bắt đầu gọi AI lấy Vector...')
+    // =====================================================================
+    // TRẠM 1: "ÉP CUNG" AI TRÍCH XUẤT JSON DỰA TRÊN NGỮ CẢNH
+    // =====================================================================
+    console.log('1. Đang ép AI phân tích câu hỏi thành JSON...')
+
+    // Gom lịch sử chat gần nhất (tối đa 4 câu) để AI biết "bộ trên" là bộ nào
+    const recentHistory = messages.value
+      .slice(-5, -1)
+      .map(
+        (m) =>
+          `${m.role === 'user' ? 'Khách' : 'Hệ thống'}: ${m.content.replace(/<[^>]*>?/gm, '')}`,
+      )
+      .join('\n')
+
+    const extractPrompt = `Bạn là hệ thống phân tích dữ liệu tĩnh.
+    Lịch sử trò chuyện gần đây:\n${recentHistory}\n
+    Câu hỏi mới của người dùng: "${query}"\n
+    Hãy trích xuất yêu cầu của người dùng thành ĐÚNG 1 chuỗi JSON với cấu trúc sau. TUYỆT ĐỐI KHÔNG giải thích, KHÔNG bọc trong markdown (\`\`\`json):
+    {
+      "search_keyword": "Từ khóa cốt lõi miêu tả nội dung truyện (VD: giấu nghề, trọng sinh, hài hước). Dựa vào cả lịch sử nếu người dùng nói 'giống bộ trên'. Nếu không có, để rỗng",
+      "min_chapters": Số lượng chương tối thiểu người dùng muốn (chỉ số, VD: 50). Nếu không nhắc đến, ghi 0,
+      "filter_genre": "Tên thể loại cụ thể nếu có (VD: Tu Tiên, Hành Động). Nếu không, để rỗng"
+    }`
+
+    const extractRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${chatModel}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: extractPrompt }] }] }),
+      },
+    )
+
+    const extractData = await extractRes.json()
+    if (!extractRes.ok) {
+      console.warn(
+        `⚠️ Google AI đang bận (Lỗi ${extractRes.status}), tự động dùng chế độ tìm kiếm cơ bản.`,
+      )
+    }
+
+    let rawJsonText = extractData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    rawJsonText = rawJsonText
+      .replace(/```json/gi, '')
+      .replace(/```/g, '')
+      .trim()
+
+    // BỌC THÉP: Luôn đảm bảo có số 0 và chuỗi rỗng để không làm sập Supabase
+    let searchParams = { search_keyword: query, min_chapters: 0, filter_genre: '' }
+    try {
+      if (rawJsonText !== '{}') {
+        const parsed = JSON.parse(rawJsonText)
+        searchParams.search_keyword = parsed.search_keyword || query
+        searchParams.min_chapters = Number(parsed.min_chapters) || 0 // Ép chuẩn thành số
+        searchParams.filter_genre = parsed.filter_genre || ''
+      }
+    } catch (e) {
+      console.error('Lỗi khi parse JSON từ AI:', e)
+      console.warn('⚠️ AI trả JSON lỗi, dùng tham số mặc định.', rawJsonText)
+    }
+
+    console.log('🎯 DỮ LIỆU ĐƯA VÀO SUPABASE:', searchParams)
+
+    // =====================================================================
+    // TRẠM 2: TẠO VECTOR CHO TỪ KHÓA ĐÃ LỌC
+    // =====================================================================
+    console.log('2. Bắt đầu gọi AI lấy Vector...')
     const embedRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${embedModel}:embedContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          content: { parts: [{ text: query }] },
+          content: { parts: [{ text: searchParams.search_keyword }] },
           taskType: 'RETRIEVAL_QUERY',
-          outputDimensionality: 768, // Ép 768 chiều khớp với DB
+          outputDimensionality: 768,
         }),
       },
     )
 
-    // --- TRẠM 2: Lấy Vector xong ---
-    console.log('2. Đã gọi xong Vector! Trạng thái HTTP:', embedRes.status)
     const embedData = await embedRes.json()
-
-    if (!embedRes.ok || !embedData.embedding) {
-      console.error('Lỗi từ Google Embedding:', embedData)
-      throw new Error('EMBED_ERROR')
-    }
+    if (!embedRes.ok) throw new Error('EMBED_ERROR')
     const queryVector = embedData.embedding.values
 
-    // --- TRẠM 3: Gọi Database ---
+    // =====================================================================
+    // TRẠM 3: GỌI SUPABASE VỚI HYBRID SEARCH (VECTOR + LỌC CỨNG)
+    // =====================================================================
     console.log('3. Bắt đầu gọi Supabase tìm truyện...')
     const { data: matchedMangas, error: dbError } = await supabase.rpc('match_mangas_ai', {
       query_embedding: queryVector,
       match_threshold: 0.01,
       match_count: 3,
+      min_chapters: searchParams.min_chapters,
+      filter_genre: searchParams.filter_genre,
     })
 
-    // --- TRẠM 4: Trả về từ Database ---
     if (dbError) {
-      console.error('LỖI TỪ SUPABASE:', dbError)
+      console.error('Lỗi từ Supabase:', dbError)
       throw new Error('DB_ERROR')
     }
     console.log('4. Supabase chạy xong! Số truyện tìm thấy:', matchedMangas?.length)
 
-    // --- TRẠM 5: Gọi AI tạo câu trả lời ---
-    console.log('5. Bắt đầu gọi AI (gemini-2.5-flash) viết câu chào...')
+    // =====================================================================
+    // TRẠM 4: AI VIẾT CÂU TRẢ LỜI (CÓ TRÍ NHỚ)
+    // =====================================================================
+    console.log('5. Bắt đầu gọi AI viết câu chào...')
     let aiReply = ''
+
     if (!matchedMangas || matchedMangas.length === 0) {
       aiReply =
-        'Mình lật tung thư viện rồi mà chưa thấy bộ nào khớp lắm. Bạn thử đổi từ khóa khác xem sao nhé! 🕵️‍♂️'
+        'Mình lật tung thư viện rồi mà chưa thấy bộ nào khớp với yêu cầu khắt khe này của bạn. Đổi từ khóa hoặc hạ số chương xuống chút xem sao nha! 🕵️‍♂️'
     } else {
-      const context = matchedMangas.map((m) => `- ${m.title}`).join('\n')
-      const prompt = `Bạn là trợ lý tư vấn truyện tranh. Người dùng hỏi: "${query}".
-      Dựa vào danh sách: \n${context}\n
-      Hãy trả lời bằng 1 câu ngắn gọn, thân thiện để giới thiệu các bộ truyện này phù hợp thế nào.
-      Không phân tích dài dòng. Trả lời bằng tiếng Việt.`
+      const context = matchedMangas
+        .map((m) => `- ${m.title} (Thể loại: ${m.genres}, ${m.chapter_count} chương)`)
+        .join('\n')
 
-      const chatRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${chatModel}:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-          }),
-        },
-      )
+      const prompt = `Bạn là trợ lý tư vấn truyện. Lịch sử:\n${recentHistory}\n
+      Khách hỏi: "${query}".
+      Truyện tìm được:\n${context}\n
+      Hãy trả lời bằng 1 câu ngắn gọn, thân thiện (dưới 30 chữ) để giới thiệu các bộ truyện này. Chú ý nhắc đến số chương hoặc thể loại nếu khách có yêu cầu.`
 
-      console.log('5.5. AI phản hồi xong! Trạng thái HTTP:', chatRes.status)
-      const chatData = await chatRes.json()
+      let greetingText = 'Tadaa! Đây là những siêu phẩm mình tìm được cho bạn:' // Câu chào mặc định
 
-      if (!chatRes.ok) {
-        console.error('Lỗi từ AI Chat:', chatData)
-        throw new Error('CHAT_ERROR')
+      try {
+        const chatRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${chatModel}:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+          },
+        )
+
+        if (!chatRes.ok) {
+          console.warn(
+            `⚠️ AI bận viết câu chào (Lỗi ${chatRes.status}). Sử dụng câu chào mặc định.`,
+          )
+        } else {
+          const chatData = await chatRes.json()
+          greetingText = chatData.candidates?.[0]?.content?.parts?.[0]?.text || greetingText
+        }
+      } catch (chatErr) {
+        console.warn('⚠️ Không thể kết nối AI để tạo câu chào.', chatErr)
       }
 
-      aiReply =
-        chatData.candidates?.[0]?.content?.parts?.[0]?.text ||
-        'Tadaa! Mình đã chọn lọc ra những siêu phẩm này cho bạn đây:'
+      aiReply = greetingText // Dùng câu chào của AI (hoặc câu mặc định nếu AI lỗi)
 
-      // Gắn giao diện truyện vào bên dưới câu trả lời
+      // Gắn giao diện thẻ truyện (có thêm thông tin chương và thể loại)
       aiReply += `<div class="mt-3 flex flex-col gap-2">`
       matchedMangas.forEach((m) => {
         aiReply += `
@@ -279,23 +348,26 @@ const sendMessage = async () => {
           <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
             <span class="text-lg">📖</span>
           </div>
-          <span class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors">
-            ${m.title}
-          </span>
+          <div class="flex flex-col overflow-hidden">
+            <span class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors">
+              ${m.title}
+            </span>
+            <span class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+              ${m.chapter_count} chương • ${m.genres.split(',')[0] || 'Truyện tranh'}
+            </span>
+          </div>
         </a>`
       })
       aiReply += `</div>`
     }
 
     messages.value.push({ role: 'ai', content: aiReply })
-
-    // --- TRẠM 6: Thành công ---
     console.log('6. HOÀN THÀNH TẤT CẢ!')
   } catch (err) {
     console.error('BỊ LỖI RỒI:', err)
     messages.value.push({
       role: 'ai',
-      content: 'Hệ thống đang bảo trì một chút, bạn chờ chút xíu rồi thử lại nha! 🔧',
+      content: 'Hệ thống đang quá tải hoặc gọi API quá nhanh. Bạn chờ vài giây rồi thử lại nha! 🔧',
     })
   } finally {
     isLoading.value = false
