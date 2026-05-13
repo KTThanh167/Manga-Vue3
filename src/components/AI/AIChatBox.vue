@@ -166,7 +166,7 @@ const scrollToBottom = async () => {
 }
 
 const sendMessage = async () => {
-  if (!userInput.value.trim()) return
+  if (!userInput.value.trim() || isLoading.value) return
   const query = userInput.value.trim()
   messages.value.push({ role: 'user', content: query })
   userInput.value = ''
@@ -174,60 +174,69 @@ const sendMessage = async () => {
   scrollToBottom()
 
   try {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY.trim()
+    const rawKey = import.meta.env.VITE_GEMINI_API_KEY
+    if (!rawKey) throw new Error('Thiếu API Key')
+    const apiKey = rawKey.trim()
 
-    // --- BƯỚC 1: KIỂM TRA MODEL ---
-    const checkRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-    )
-    const checkData = await checkRes.json()
+    // Sử dụng model mới nhất mà bạn đã dò được
+    const embedModel = 'gemini-embedding-2'
+    const chatModel = 'gemini-2.5-flash'
 
-    const embedModel = checkData.models.find((m) =>
-      m.supportedGenerationMethods.includes('embedContent'),
-    )?.name
-    const chatModel = checkData.models.find((m) =>
-      m.supportedGenerationMethods.includes('generateContent'),
-    )?.name
-
-    if (!embedModel || !chatModel) throw new Error('Không tìm thấy model phù hợp trong tài khoản')
-
-    // --- BƯỚC 2: TẠO VECTOR ---
+    // --- TRẠM 1: Bắt đầu lấy Vector ---
+    console.log('1. Bắt đầu gọi AI lấy Vector...')
     const embedRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/${embedModel}:embedContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${embedModel}:embedContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: { parts: [{ text: query }] },
           taskType: 'RETRIEVAL_QUERY',
+          outputDimensionality: 768, // Ép 768 chiều khớp với DB
         }),
       },
     )
+
+    // --- TRẠM 2: Lấy Vector xong ---
+    console.log('2. Đã gọi xong Vector! Trạng thái HTTP:', embedRes.status)
     const embedData = await embedRes.json()
+
+    if (!embedRes.ok || !embedData.embedding) {
+      console.error('Lỗi từ Google Embedding:', embedData)
+      throw new Error('EMBED_ERROR')
+    }
     const queryVector = embedData.embedding.values
 
-    // --- BƯỚC 3: TÌM TRUYỆN ---
-    const { data: matchedMangas } = await supabase.rpc('match_mangas_ai', {
+    // --- TRẠM 3: Gọi Database ---
+    console.log('3. Bắt đầu gọi Supabase tìm truyện...')
+    const { data: matchedMangas, error: dbError } = await supabase.rpc('match_mangas_ai', {
       query_embedding: queryVector,
       match_threshold: 0.01,
       match_count: 3,
     })
 
-    // --- BƯỚC 4: CHAT BẰNG MODEL ĐÃ DÒ ĐƯỢC ---
+    // --- TRẠM 4: Trả về từ Database ---
+    if (dbError) {
+      console.error('LỖI TỪ SUPABASE:', dbError)
+      throw new Error('DB_ERROR')
+    }
+    console.log('4. Supabase chạy xong! Số truyện tìm thấy:', matchedMangas?.length)
+
+    // --- TRẠM 5: Gọi AI tạo câu trả lời ---
+    console.log('5. Bắt đầu gọi AI (gemini-2.5-flash) viết câu chào...')
     let aiReply = ''
     if (!matchedMangas || matchedMangas.length === 0) {
       aiReply =
         'Mình lật tung thư viện rồi mà chưa thấy bộ nào khớp lắm. Bạn thử đổi từ khóa khác xem sao nhé! 🕵️‍♂️'
     } else {
       const context = matchedMangas.map((m) => `- ${m.title}`).join('\n')
-
       const prompt = `Bạn là trợ lý tư vấn truyện tranh. Người dùng hỏi: "${query}".
       Dựa vào danh sách: \n${context}\n
-      Hãy trả lời bằng 1-2 câu ngắn gọn, thân thiện để giới thiệu các bộ truyện này phù hợp thế nào.
+      Hãy trả lời bằng 1 câu ngắn gọn, thân thiện để giới thiệu các bộ truyện này phù hợp thế nào.
       Không phân tích dài dòng. Trả lời bằng tiếng Việt.`
 
       const chatRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/${chatModel}:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${chatModel}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -237,32 +246,41 @@ const sendMessage = async () => {
         },
       )
 
+      console.log('5.5. AI phản hồi xong! Trạng thái HTTP:', chatRes.status)
       const chatData = await chatRes.json()
+
+      if (!chatRes.ok) {
+        console.error('Lỗi từ AI Chat:', chatData)
+        throw new Error('CHAT_ERROR')
+      }
+
       aiReply =
         chatData.candidates?.[0]?.content?.parts?.[0]?.text ||
         'Tadaa! Mình đã chọn lọc ra những siêu phẩm này cho bạn đây:'
 
-      // Thêm phần hiển thị truyện vào câu trả lời của AI
+      // Gắn giao diện truyện vào bên dưới câu trả lời
       aiReply += `<div class="mt-3 flex flex-col gap-2">`
       matchedMangas.forEach((m) => {
         aiReply += `
-      <a href="/doc-truyen/${m.slug}?isLocal=true"
-         class="group flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 border border-gray-100 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-500/50 rounded-xl transition-all duration-300">
-        <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-          <span class="text-lg">📖</span>
-        </div>
-        <span class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors">
-          ${m.title}
-        </span>
-        <svg class="w-4 h-4 ml-auto text-gray-400 group-hover:text-indigo-500 transform group-hover:translate-x-1 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-      </a>`
+        <a href="/doc-truyen/${m.slug}?isLocal=true"
+           class="group flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 border border-gray-100 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-500/50 rounded-xl transition-all duration-300">
+          <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <span class="text-lg">📖</span>
+          </div>
+          <span class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors">
+            ${m.title}
+          </span>
+        </a>`
       })
       aiReply += `</div>`
     }
 
     messages.value.push({ role: 'ai', content: aiReply })
+
+    // --- TRẠM 6: Thành công ---
+    console.log('6. HOÀN THÀNH TẤT CẢ!')
   } catch (err) {
-    console.error('Lỗi:', err)
+    console.error('BỊ LỖI RỒI:', err)
     messages.value.push({
       role: 'ai',
       content: 'Hệ thống đang bảo trì một chút, bạn chờ chút xíu rồi thử lại nha! 🔧',
