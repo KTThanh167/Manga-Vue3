@@ -110,11 +110,17 @@
           </div>
         </div>
 
-        <div v-else class="flex justify-center">
-          <span
-            class="text-[11px] font-bold bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 text-indigo-600 dark:text-indigo-300 px-3 py-2 rounded-xl border border-indigo-200 dark:border-indigo-700/50 w-full text-center flex items-center justify-center gap-1"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div
+          v-else
+          class="flex flex-col space-y-2 border-t border-gray-100 dark:border-slate-700/50 pt-2 mt-1"
+        >
+          <div class="flex items-center gap-1.5 px-1">
+            <svg
+              class="w-3.5 h-3.5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -122,8 +128,47 @@
                 d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
               ></path>
             </svg>
-            Truyện Sáng Tác
-          </span>
+            <span class="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+              Tác giả:
+              <strong class="text-indigo-500 dark:text-indigo-400">{{
+                manga.author || 'Đang cập nhật'
+              }}</strong>
+            </span>
+          </div>
+
+          <div
+            v-if="latestChapters.length > 0"
+            @click.stop="goToChapter(latestChapters[0])"
+            class="relative inline-flex items-center justify-between w-full bg-gradient-to-r from-purple-500/10 to-indigo-500/10 dark:from-purple-500/20 dark:to-indigo-500/20 hover:from-purple-500/20 hover:to-indigo-500/20 px-3 py-2 rounded-xl transition-all border border-indigo-100 dark:border-indigo-700/50 cursor-pointer group/item"
+          >
+            <span class="text-[11px] font-bold text-indigo-600 dark:text-indigo-300 truncate">
+              Chương {{ latestChapters[0].chapter_number || latestChapters[0].chapter_name }}
+            </span>
+
+            <svg
+              class="w-3.5 h-3.5 text-indigo-500 group-hover/item:translate-x-1 transition-transform shrink-0"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 5l7 7-7 7"
+              ></path>
+            </svg>
+
+            <span
+              class="absolute -top-2.5 -right-1.5 px-1.5 py-[2px] text-[7px] font-black tracking-widest uppercase text-white bg-gradient-to-r from-rose-500 to-red-500 rounded-full shadow-sm shadow-red-500/40 animate-pulse border border-white dark:border-slate-800"
+            >
+              NEW
+            </span>
+          </div>
+
+          <div v-else class="text-center bg-gray-50 dark:bg-slate-700/30 rounded-xl px-3 py-2">
+            <span class="text-[11px] text-gray-400 italic">Chưa có chương nào</span>
+          </div>
         </div>
       </div>
     </div>
@@ -171,7 +216,14 @@ const goToDetail = () => {
 }
 
 const latestChapters = computed(() => {
-  if (props.manga.isLocal) return []
+  // Nếu là truyện sáng tác, lấy data từ props cha truyền xuống
+  if (props.manga.isLocal) {
+    if (props.manga.latest_chapter) return [props.manga.latest_chapter]
+    if (props.manga.chapters && props.manga.chapters.length > 0) return [props.manga.chapters[0]]
+    return []
+  }
+
+  // Logic cũ của API
   const list = props.manga.chaptersLatest || []
   if (list.length === 0) return []
   const rawChapters =
@@ -181,9 +233,19 @@ const latestChapters = computed(() => {
 
 const goToChapter = (chap) => {
   if (!chap) return
+
+  // Logic chuyển trang cho truyện Sáng tác
+  if (props.manga.isLocal) {
+    router.push({
+      path: `/doc-truyen/${props.manga.slug}/${chap.chapter_number || chap.chapter_name}`,
+      query: { isLocal: 'true' },
+    })
+    return
+  }
+
+  // Logic chuyển trang cho truyện API
   const id = chap.chapter_api_data?.split('/').pop()
   const chapterApiUrl = `https://sv1.otruyencdn.com/v1/api/chapter/${id}`
-
   router.push({
     path: `/doc-truyen/${props.manga.slug}/${chap.chapter_name}`,
     query: { api: chapterApiUrl },
