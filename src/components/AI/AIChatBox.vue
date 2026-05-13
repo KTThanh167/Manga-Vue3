@@ -24,19 +24,31 @@
               <p class="text-[10px] text-indigo-100 font-medium">Trực tuyến - Sẵn sàng tư vấn</p>
             </div>
           </div>
-          <button
-            @click="isOpen = false"
-            class="w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors relative z-10"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              ></path>
-            </svg>
-          </button>
+
+          <div class="flex items-center gap-2 relative z-10">
+            <button
+              @click="clearHistory"
+              class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-red-500/80 hover:shadow-lg hover:shadow-red-500/30 text-white text-xs font-medium transition-all duration-300 backdrop-blur-sm border border-white/20"
+              title="Xóa lịch sử trò chuyện"
+            >
+              <span class="text-sm">🗑️</span>
+              <span>Làm mới</span>
+            </button>
+
+            <button
+              @click="isOpen = false"
+              class="w-8 h-8 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 text-white transition-colors"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                ></path>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div
@@ -141,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick } from 'vue'
+import { ref, nextTick, watch, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
 const isOpen = ref(false)
@@ -290,6 +302,40 @@ const sendMessage = async () => {
     scrollToBottom()
   }
 }
+
+// Hàm xóa lịch sử chat
+const clearHistory = () => {
+  if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện với AI không?')) {
+    // Reset lại mảng về đúng 1 tin nhắn chào hỏi mặc định của bạn
+    messages.value = [
+      {
+        role: 'ai',
+        content: 'Tadaa! Mình là trợ lý truyện tranh đây. Bạn đang muốn tìm thể loại gì nào? 🕵️‍♂️',
+      },
+    ]
+    // Xóa khỏi bộ nhớ trình duyệt
+    localStorage.removeItem('manga_ai_chat_history')
+  }
+}
+
+// Khi component được mount, tải lịch sử chat từ localStorage nếu có
+onMounted(() => {
+  const savedChat = localStorage.getItem('manga_ai_chat_history')
+  if (savedChat) {
+    messages.value = JSON.parse(savedChat)
+    // Đẩy thanh cuộn xuống cuối sau khi render xong chữ
+    nextTick(() => scrollToBottom())
+  }
+})
+
+// Mỗi khi messages thay đổi, lưu lại vào localStorage
+watch(
+  messages,
+  (newVal) => {
+    localStorage.setItem('manga_ai_chat_history', JSON.stringify(newVal))
+  },
+  { deep: true },
+) // Dùng deep: true để theo dõi sự thay đổi bên trong mảng
 </script>
 
 <style scoped>
