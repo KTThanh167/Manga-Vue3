@@ -9,7 +9,7 @@ defineProps({
 
 defineEmits(['changeChapter'])
 const router = useRouter()
-const route = useRoute() // Thêm route để lấy query isLocal
+const route = useRoute()
 </script>
 
 <template>

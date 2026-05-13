@@ -10,7 +10,7 @@
     ></div>
 
     <div
-      class="sticky top-0 z-50 shadow-sm dark:shadow-slate-900/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800/60"
+      class="fixed top-[102px] left-0 right-0 z-50 shadow-sm dark:shadow-slate-900/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800/60"
     >
       <ReaderHeader
         :comicName="chapterData?.comic_name"
