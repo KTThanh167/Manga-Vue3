@@ -262,7 +262,7 @@ const sendMessage = async () => {
       aiReply += `<div class="mt-3 flex flex-col gap-2">`
       matchedMangas.forEach((m) => {
         aiReply += `
-        <a href="/doc-truyen/${m.slug}?isLocal=true"
+        <a href="/truyen/${m.slug}?isLocal=false"
            class="group flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 border border-gray-100 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-500/50 rounded-xl transition-all duration-300">
           <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
             <span class="text-lg">📖</span>
