@@ -76,7 +76,7 @@ watch(
 
 <template>
   <div
-    v-if="homeStore.recommendedList.length > 0"
+    v-if="homeStore.recommendedList.length > 0 && homeStore.topCategory"
     class="mb-12 p-6 md:p-8 bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-600 rounded-3xl shadow-2xl shadow-indigo-500/30 text-white overflow-hidden relative"
   >
     <div
