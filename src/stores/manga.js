@@ -190,19 +190,16 @@ export const useMangaStore = defineStore('manga', {
     // Hàm này sẽ được gọi khi người dùng đăng nhập để đồng bộ bookmark từ DB về Local
     async loadBookmarks() {
       const auth = useAuthStore()
-      // 1. Lấy user trực tiếp từ Supabase Auth
       const {
         data: { user },
       } = await supabase.auth.getUser()
 
       if (user) {
-        // 2. Fetch từ Database
         const { data, error } = await supabase.from('bookmarks').select('*').eq('user_id', user.id)
 
         if (error) {
           console.error('Lỗi khi fetch bookmark:', error)
-        } else if (data && data.length > 0) {
-          // Nếu có dữ liệu từ DB, đè vào mảng Local
+        } else if (data) {
           this.followedMangas = data.map((item) => ({
             ...item,
             name: item.manga_name,

@@ -203,28 +203,40 @@ const isGoogleLoading = ref(false) // Thêm biến loading cho Google
 const router = useRouter()
 
 const handleLogin = async () => {
-  const hideLoading = message.loading('Manga Real đang xác thực...', 0)
+  // 1. Dùng 'key' để quản lý thông báo, tránh lỗi crash khi gọi hàm ẩn loading
+  message.loading({ content: 'Manga Real đang xác thực...', key: 'loginProcess', duration: 0 })
+
   try {
+    // 2. Cực kỳ quan trọng: Trim dữ liệu đầu vào
+    // Loại bỏ mọi khoảng trắng thừa để quá trình so sánh thông tin chính xác tuyệt đối
+    const cleanEmail = email.value.trim()
+    const cleanPassword = password.value.trim()
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.value,
-      password: password.value,
+      email: cleanEmail,
+      password: cleanPassword,
     })
+
     if (error) {
-      hideLoading()
+      // Hủy thông báo loading thông qua key
+      message.destroy('loginProcess')
       message.error('Sai tài khoản hoặc mật khẩu!')
       return
     }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role, username')
       .eq('id', data.user.id)
       .single()
-    hideLoading()
+
+    message.destroy('loginProcess')
     message.success(`Chào mừng ${profile?.username || 'độc giả'} trở lại!`)
+
     profile?.role === 'admin' ? router.push('/admin/dashboard') : router.push('/')
   } catch (err) {
     console.error('Login error:', err)
-    hideLoading()
+    message.destroy('loginProcess')
     message.error('Lỗi hệ thống rồi Thành ơi!')
   }
 }

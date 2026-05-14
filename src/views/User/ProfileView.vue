@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
@@ -7,7 +7,7 @@ import { useRouter } from 'vue-router'
 const authStore = useAuthStore()
 const router = useRouter()
 
-// State chính để lưu thông tin và thống kê người dùng
+// State chính
 const loading = ref(true)
 const stats = ref({
   followedCount: 0,
@@ -15,14 +15,19 @@ const stats = ref({
   messageCount: 0,
 })
 
-// State cho phần chỉnh sửa Profile (Đã bỏ Avatar)
+// Kiểm tra xem user đăng nhập bằng Google hay Email/Password
+const isGoogleUser = computed(() => {
+  return authStore.user?.app_metadata?.provider === 'google'
+})
+
+// State Profile
 const isEditing = ref(false)
 const editData = ref({
   username: '',
 })
 const updating = ref(false)
 
-// State cho phần đổi mật khẩu
+// State Đổi mật khẩu
 const isChangingPassword = ref(false)
 const newPassword = ref('')
 const confirmPassword = ref('')
@@ -54,15 +59,13 @@ const fetchUserStats = async () => {
   }
 }
 
-// Khởi tạo dữ liệu sửa khi mở Form
 const startEdit = () => {
   editData.value = {
-    username: authStore.profile.username,
+    username: authStore.profile?.username || '',
   }
   isEditing.value = true
 }
 
-// Hàm cập nhật Profile lên Supabase
 const handleUpdateProfile = async () => {
   if (!editData.value.username.trim()) {
     alert('Tên hiển thị không được để trống!')
@@ -91,7 +94,6 @@ const handleUpdateProfile = async () => {
   }
 }
 
-// Hàm xử lý đổi mật khẩu
 const handleUpdatePassword = async () => {
   if (!oldPassword.value || !newPassword.value || !confirmPassword.value) {
     alert('Vui lòng nhập đầy đủ thông tin!')
@@ -138,9 +140,22 @@ const handleUpdatePassword = async () => {
 onMounted(async () => {
   loading.value = true
   await authStore.fetchProfile()
-  await fetchUserStats()
+  if (authStore.user) {
+    await fetchUserStats()
+  }
   loading.value = false
 })
+
+// THEO DÕI SỰ THAY ĐỔI CỦA USER THAY VÌ CHẠY 1 LẦN TRÊN MOUNTED
+watch(
+  () => authStore.profile,
+  async (newProfile) => {
+    if (newProfile) {
+      await fetchUserStats()
+      loading.value = false
+    }
+  },
+)
 </script>
 
 <template>
@@ -331,6 +346,7 @@ onMounted(async () => {
         </div>
 
         <div
+          v-if="!isGoogleUser"
           @click="isChangingPassword = true"
           class="p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors group"
         >
