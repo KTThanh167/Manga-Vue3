@@ -1,5 +1,4 @@
 <script setup>
-// Giữ nguyên 100% logic cũ của bạn
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
 import { formatDistanceToNow } from 'date-fns'
@@ -66,11 +65,13 @@ const fetchAndListen = async () => {
   } = await supabase.auth.getUser()
   currentUser.value = user
 
+  // 1. CẬP NHẬT QUERY: Lấy thêm role từ bảng profiles (Cú pháp rút gọn)
   const { data: msgData } = await supabase
     .from('global_messages')
-    .select('*')
+    .select('*, profiles(role)')
     .order('created_at', { ascending: true })
     .limit(50)
+
   messages.value = msgData || []
 
   if (messages.value.length > 0) {
@@ -89,10 +90,21 @@ const fetchAndListen = async () => {
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'global_messages' },
-      (payload) => {
+      async (payload) => {
         const exists = messages.value.some((m) => m.id === payload.new.id)
         if (!exists) {
-          messages.value.push(payload.new)
+          // 2. CẬP NHẬT REALTIME: Kéo thêm thông tin profile cho tin nhắn mới vừa bay vào
+          const { data: newMsgWithProfile } = await supabase
+            .from('global_messages')
+            .select('*, profiles(role)')
+            .eq('id', payload.new.id)
+            .single()
+
+          if (newMsgWithProfile) {
+            messages.value.push(newMsgWithProfile)
+          } else {
+            messages.value.push(payload.new) // Fallback nếu có lỗi
+          }
           scrollToBottom()
         }
       },
@@ -142,7 +154,6 @@ const formatTimeAgo = (dateString) => {
   return formatDistanceToNow(date, { addSuffix: true, locale: vi }).replace('khoảng ', '')
 }
 
-// Hàm hỗ trợ lấy chữ cái đầu làm Avatar
 const getInitial = (name) => {
   return name ? name.charAt(0).toUpperCase() : 'U'
 }
@@ -205,9 +216,31 @@ onUnmounted(() => {
                 msg.user_id === currentUser?.id ? 'flex-row-reverse' : '',
               ]"
             >
-              <span class="font-bold text-[11px] text-gray-700 dark:text-gray-300">
-                {{ msg.user_id === currentUser?.id ? 'Bạn' : msg.user_name }}
-              </span>
+              <div class="flex items-center gap-1">
+                <span
+                  class="text-[11px]"
+                  :class="
+                    msg.profiles?.role === 'admin'
+                      ? 'font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400'
+                      : 'font-bold text-gray-700 dark:text-gray-300'
+                  "
+                >
+                  {{ msg.user_id === currentUser?.id ? 'Bạn' : msg.user_name }}
+                </span>
+
+                <svg
+                  v-if="msg.profiles?.role === 'admin'"
+                  class="w-3.5 h-3.5 text-blue-500"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  title="Quản trị viên"
+                >
+                  <path
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+                  ></path>
+                </svg>
+              </div>
+
               <span class="text-[9px] text-gray-400 dark:text-gray-500 font-medium">
                 {{ formatTimeAgo(msg.created_at) }}
               </span>
@@ -217,9 +250,11 @@ onUnmounted(() => {
               <p
                 :class="[
                   'text-sm p-3 shadow-sm border transition-colors relative z-10 leading-relaxed break-words',
-                  msg.user_id === currentUser?.id
-                    ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-transparent rounded-2xl rounded-tr-sm shadow-indigo-500/20'
-                    : 'bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-100 border-gray-100 dark:border-neutral-700 rounded-2xl rounded-tl-sm',
+                  msg.profiles?.role === 'admin'
+                    ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-800/50 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-sm shadow-md'
+                    : msg.user_id === currentUser?.id
+                      ? 'bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-transparent rounded-2xl rounded-tr-sm shadow-indigo-500/20'
+                      : 'bg-white dark:bg-neutral-800 text-gray-800 dark:text-gray-100 border-gray-100 dark:border-neutral-700 rounded-2xl rounded-tl-sm',
                 ]"
               >
                 {{ msg.content }}
