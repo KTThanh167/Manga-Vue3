@@ -2,38 +2,45 @@ import { defineStore } from 'pinia'
 import { supabase } from '../lib/supabaseClient'
 
 export const useAuthStore = defineStore('auth', {
-  // 1. State: Nơi lưu trữ dữ liệu user
   state: () => ({
     user: null,
-    userProfile: null,
+    profile: null, // Thống nhất dùng tên này
   }),
-  // 2. Getters: Các hàm tính toán dựa trên state
   getters: {
-    isAdmin: (state) => state.userProfile?.role === 'admin',
+    isAdmin: (state) => state.profile?.role === 'admin',
   },
-  // 3. Actions: Các hàm xử lý logic
   actions: {
-    async fetchProfile() {
+    async initAuth() {
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        data: { session },
+      } = await supabase.auth.getSession()
+      if (session) {
+        this.user = session.user
+        await this.fetchProfile()
+      }
 
-      if (user) {
-        this.user = user
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single()
-
-        if (!error) {
-          this.userProfile = data
-          // Gộp thêm role từ app_metadata vào để chắc chắn
-          if (!this.userProfile.role) {
-            this.userProfile.role = user.app_metadata?.role
-          }
-          return data
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session) {
+          this.user = session.user
+          await this.fetchProfile()
+        } else {
+          this.user = null
+          this.profile = null
         }
+      })
+    },
+
+    async fetchProfile() {
+      if (!this.user) return null
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', this.user.id)
+        .single()
+
+      if (!error && data) {
+        this.profile = data // Gán vào biến profile
+        return data
       }
       return null
     },
@@ -41,17 +48,8 @@ export const useAuthStore = defineStore('auth', {
     async logout() {
       await supabase.auth.signOut()
       this.user = null
-      this.userProfile = null
-    },
-    async fetchProfile() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        this.user = user
-        const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-        this.profile = data
-      }
+      this.profile = null
+      localStorage.removeItem('manga_followed')
     },
   },
 })
