@@ -153,8 +153,10 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onMounted } from 'vue'
+import { ref, nextTick, watch, onMounted, createVNode } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { Modal } from 'ant-design-vue'
+import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 
 const isOpen = ref(false)
 const isLoading = ref(false)
@@ -377,17 +379,29 @@ const sendMessage = async () => {
 
 // Hàm xóa lịch sử chat
 const clearHistory = () => {
-  if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện với AI không?')) {
-    // Reset lại mảng về đúng 1 tin nhắn chào hỏi mặc định của bạn
-    messages.value = [
-      {
-        role: 'ai',
-        content: 'Tadaa! Mình là trợ lý truyện tranh đây. Bạn đang muốn tìm thể loại gì nào? 🕵️‍♂️',
-      },
-    ]
-    // Xóa khỏi bộ nhớ trình duyệt
-    localStorage.removeItem('manga_ai_chat_history')
-  }
+  Modal.confirm({
+    title: 'Xác nhận xóa',
+    icon: createVNode(ExclamationCircleOutlined),
+    content: 'Bạn có chắc chắn muốn xóa toàn bộ lịch sử trò chuyện với AI không?',
+    okText: 'Xóa ngay',
+    cancelText: 'Hủy',
+    okType: 'danger',
+    centered: true,
+    maskClosable: true,
+    onOk() {
+      messages.value = [
+        {
+          role: 'ai',
+          content: 'Tadaa! Mình là trợ lý truyện tranh đây. Bạn đang muốn tìm thể loại gì nào? 🕵️‍♂️',
+        },
+      ]
+
+      localStorage.removeItem('manga_ai_chat_history')
+    },
+    onCancel() {
+      console.log('Đã hủy thao tác xóa lịch sử chat')
+    },
+  })
 }
 
 // Khi component được mount, tải lịch sử chat từ localStorage nếu có
