@@ -90,17 +90,22 @@
               </div>
             </div>
             <div
-              class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-3.5 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-1.5 h-10"
+              class="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 py-2.5 px-3.5 rounded-2xl rounded-bl-sm shadow-sm flex items-center gap-3"
             >
-              <div class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"></div>
-              <div
-                class="w-2 h-2 bg-purple-400 rounded-full animate-bounce"
-                style="animation-delay: 0.15s"
-              ></div>
-              <div
-                class="w-2 h-2 bg-indigo-400 rounded-full animate-bounce"
-                style="animation-delay: 0.3s"
-              ></div>
+              <div class="flex gap-1 shrink-0">
+                <div class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"></div>
+                <div
+                  class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.15s"
+                ></div>
+                <div
+                  class="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce"
+                  style="animation-delay: 0.3s"
+                ></div>
+              </div>
+              <span class="text-xs font-medium text-indigo-500 dark:text-indigo-400 animate-pulse">
+                {{ loadingMessage }}
+              </span>
             </div>
           </div>
         </div>
@@ -162,6 +167,7 @@ const isOpen = ref(false)
 const isLoading = ref(false)
 const userInput = ref('')
 const chatContainer = ref(null)
+const loadingMessage = ref('')
 
 // Tin nhắn chào mừng mặc định
 const messages = ref([
@@ -185,6 +191,7 @@ const sendMessage = async () => {
   messages.value.push({ role: 'user', content: query })
   userInput.value = ''
   isLoading.value = true
+  loadingMessage.value = 'Đang đọc hiểu yêu cầu của bạn...'
   scrollToBottom()
 
   try {
@@ -199,6 +206,7 @@ const sendMessage = async () => {
     // TRẠM 1: "ÉP CUNG" AI TRÍCH XUẤT JSON DỰA TRÊN NGỮ CẢNH
     // =====================================================================
     console.log('1. Đang ép AI phân tích câu hỏi thành JSON...')
+    loadingMessage.value = 'Đang phân tích từ khóa và thể loại...'
 
     // Gom lịch sử chat gần nhất (tối đa 4 câu) để AI biết "bộ trên" là bộ nào
     const recentHistory = messages.value
@@ -261,6 +269,7 @@ const sendMessage = async () => {
     // TRẠM 2: TẠO VECTOR CHO TỪ KHÓA ĐÃ LỌC
     // =====================================================================
     console.log('2. Bắt đầu gọi AI lấy Vector...')
+    loadingMessage.value = 'Đang mã hóa dữ liệu tìm kiếm (Vectorizing)...'
     const embedRes = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${embedModel}:embedContent?key=${apiKey}`,
       {
@@ -282,6 +291,7 @@ const sendMessage = async () => {
     // TRẠM 3: GỌI SUPABASE VỚI HYBRID SEARCH (VECTOR + LỌC CỨNG)
     // =====================================================================
     console.log('3. Bắt đầu gọi Supabase tìm truyện...')
+    loadingMessage.value = 'Đang lục lọi trong thư viện truyện...'
     const { data: matchedMangas, error: dbError } = await supabase.rpc('match_mangas_ai', {
       query_embedding: queryVector,
       match_threshold: 0.01,
@@ -300,6 +310,7 @@ const sendMessage = async () => {
     // TRẠM 4: AI VIẾT CÂU TRẢ LỜI (CÓ TRÍ NHỚ)
     // =====================================================================
     console.log('5. Bắt đầu gọi AI viết câu chào...')
+    loadingMessage.value = 'Đang trau chuốt lại câu trả lời...'
     let aiReply = ''
 
     if (!matchedMangas || matchedMangas.length === 0) {
@@ -374,6 +385,7 @@ const sendMessage = async () => {
   } finally {
     isLoading.value = false
     scrollToBottom()
+    loadingMessage.value = ''
   }
 }
 
