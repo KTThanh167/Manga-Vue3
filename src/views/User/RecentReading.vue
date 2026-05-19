@@ -1,9 +1,11 @@
 <script setup>
 import { onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useMangaStore } from '@/stores/manga'
 import { supabase } from '@/lib/supabaseClient'
 
 const mangaStore = useMangaStore()
+const router = useRouter()
 let historyChannel = null
 
 onMounted(async () => {
@@ -42,6 +44,37 @@ const deleteItem = async (id, name) => {
       alert('Không thể xóa lịch sử, vui lòng thử lại!')
     }
   }
+}
+
+const isLocalHistoryItem = (item) => {
+  const chapterLink = String(item.last_chapter_id || '')
+  return !!chapterLink && !chapterLink.startsWith('http') && !chapterLink.startsWith('/')
+}
+
+const goToManga = (item) => {
+  router.push({
+    name: 'manga-detail',
+    params: { slug: item.manga_slug },
+    query: isLocalHistoryItem(item) ? { isLocal: 'true' } : {},
+  })
+}
+
+const continueReading = (item) => {
+  if (!item.last_chapter_name) {
+    goToManga(item)
+    return
+  }
+
+  const chapterLink = String(item.last_chapter_id || '')
+
+  router.push({
+    name: 'ReadManga',
+    params: {
+      slug: item.manga_slug,
+      chapter: String(item.last_chapter_name),
+    },
+    query: isLocalHistoryItem(item) ? { isLocal: 'true' } : chapterLink ? { api: chapterLink } : {},
+  })
 }
 </script>
 
@@ -121,13 +154,13 @@ const deleteItem = async (id, name) => {
       <div
         v-for="item in mangaStore.readingHistory"
         :key="item.id"
-        class="group relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-gray-100 dark:border-slate-700/80 rounded-3xl p-5 hover:bg-white dark:hover:bg-slate-800 hover:border-emerald-500/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col"
+        class="group relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-gray-100 dark:border-slate-700/80 rounded-3xl p-5 hover:bg-white dark:hover:bg-slate-800 hover:border-emerald-500/30 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col cursor-pointer"
+        role="button"
+        tabindex="0"
+        @click="goToManga(item)"
+        @keydown.enter.self="goToManga(item)"
+        @keydown.space.self.prevent="goToManga(item)"
       >
-        <router-link
-          :to="`/truyen/${item.manga_slug}`"
-          class="absolute inset-0 z-0 rounded-3xl"
-        ></router-link>
-
         <div class="flex justify-between items-start mb-4 relative z-10">
           <h3
             class="text-gray-900 dark:text-white font-black text-lg leading-tight line-clamp-2 pr-4 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors"
@@ -191,10 +224,13 @@ const deleteItem = async (id, name) => {
             </svg>
             {{ formatTime(item.last_read_at) }}
           </div>
-          <span
-            class="text-[10px] uppercase font-bold text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity"
-            >Tiếp tục đọc 👉</span
+          <button
+            type="button"
+            class="text-[10px] uppercase font-bold text-indigo-500 dark:text-indigo-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:text-emerald-600 dark:hover:text-emerald-300"
+            @click.stop="continueReading(item)"
           >
+            Tiếp tục đọc →
+          </button>
         </div>
       </div>
     </TransitionGroup>
