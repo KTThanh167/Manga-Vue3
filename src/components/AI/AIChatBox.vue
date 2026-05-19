@@ -203,7 +203,7 @@ const sendMessage = async () => {
     const chatModel = 'gemini-2.5-flash' // Model xịn nhất bạn đã dò ra
 
     // =====================================================================
-    // TRẠM 1: "ÉP CUNG" AI TRÍCH XUẤT JSON DỰA TRÊN NGỮ CẢNH
+    // TRẠM 1: GỌI AI PHÂN TÍCH CÂU HỎI THÀNH JSON (TỪ KHÓA + LỌC CỨNG)
     // =====================================================================
     console.log('1. Đang ép AI phân tích câu hỏi thành JSON...')
     loadingMessage.value = 'Đang phân tích từ khóa và thể loại...'
