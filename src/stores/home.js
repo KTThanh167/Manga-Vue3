@@ -20,6 +20,7 @@ export const useHomeStore = defineStore('home', () => {
   // --- PHÂN TRANG & RESOURCES ---
   const currentPage = ref(1)
   const totalItems = ref(0)
+  const totalItemsPerPage = ref(24)
   const IMAGE_RESOURCES = 'https://otruyenapi.com/uploads/comics/'
 
   // --- TRẠNG THÁI TÌM KIẾM & LỌC ---
@@ -53,7 +54,9 @@ export const useHomeStore = defineStore('home', () => {
           listTitle.value = 'Truyện mới cập nhật'
         }
 
-        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+        const pagination = res.data.data.params?.pagination
+        totalItems.value = pagination?.totalItems || 0
+        totalItemsPerPage.value = pagination?.totalItemsPerPage || rawItems.length || 24
       }
     } catch (err) {
       error.value = 'Không thể kết nối đến máy chủ, vui lòng thử lại!'
@@ -227,11 +230,15 @@ export const useHomeStore = defineStore('home', () => {
     currentPage.value = page
     try {
       const res = await axios.get(
-        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=${page}`,
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&page=${page}`,
       )
       if (res.data.status === 'success') {
-        searchResults.value = sortByLatestUpdate(res.data.data.items)
-        totalItems.value = res.data.data.params?.pagination?.totalItems || 0
+        const items = res.data.data.items || []
+        const pagination = res.data.data.params?.pagination
+
+        searchResults.value = sortByLatestUpdate(items)
+        totalItems.value = pagination?.totalItems || 0
+        totalItemsPerPage.value = pagination?.totalItemsPerPage || items.length || 24
       }
     } catch (err) {
       console.error('Lỗi tìm kiếm:', err)
@@ -250,7 +257,7 @@ export const useHomeStore = defineStore('home', () => {
     }
     try {
       const res = await axios.get(
-        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${keyword}&page=1`,
+        `https://otruyenapi.com/v1/api/tim-kiem?keyword=${encodeURIComponent(keyword)}&page=1`,
       )
       if (res.data.status === 'success') {
         searchSuggestions.value = res.data.data.items.slice(0, 8)
@@ -269,46 +276,20 @@ export const useHomeStore = defineStore('home', () => {
     searchResults.value = []
 
     try {
-      const startPage = (page - 1) * 5 + 1
-      const endPage = page * 5
-
-      const requests = []
-      for (let i = startPage; i <= endPage; i++) {
-        requests.push(axios.get(`https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=${i}`))
-      }
-
-      const responses = await Promise.all(requests)
-      let allScanned = []
-
-      responses.forEach((res) => {
-        if (res.data.status === 'success') {
-          allScanned.push(...res.data.data.items)
-        }
-      })
-
-      // 2. Lọc theo slug thể loại
-      const matchedMangas = allScanned.filter((m) =>
-        m.category?.some((c) => c.slug === categorySlug || createSlug(c.name) === categorySlug),
+      const res = await axios.get(
+        `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
       )
 
-      // 3. XỬ LÝ KẾT QUẢ
-      if (matchedMangas.length > 0) {
-        // Sắp xếp lại cho chuẩn xác tuyệt đối theo thời gian
-        searchResults.value = sortByLatestUpdate(matchedMangas)
+      if (res.data.status === 'success') {
+        const items = res.data.data.items || []
+        const pagination = res.data.data.params?.pagination
 
-        totalItems.value = 500
-      } else {
-        // Nếu không có kết quả nào từ API, thử fallback sang API thể loại
-        const fallbackRes = await axios.get(
-          `https://otruyenapi.com/v1/api/the-loai/${categorySlug}?page=${page}`,
-        )
-        if (fallbackRes.data.status === 'success') {
-          searchResults.value = sortByLatestUpdate(fallbackRes.data.data.items)
-          totalItems.value = fallbackRes.data.data.params?.pagination?.totalItems || 0
-        }
+        searchResults.value = sortByLatestUpdate(items)
+        totalItems.value = pagination?.totalItems || 0
+        totalItemsPerPage.value = pagination?.totalItemsPerPage || items.length || 24
       }
     } catch (err) {
-      console.error('Lỗi lọc thể loại nâng cao:', err)
+      console.error('Lỗi lọc thể loại:', err)
     } finally {
       isSearching.value = false
     }
@@ -361,6 +342,7 @@ export const useHomeStore = defineStore('home', () => {
     currentUser,
     currentPage,
     totalItems,
+    totalItemsPerPage,
     IMAGE_RESOURCES,
     listTitle,
     searchResults,
