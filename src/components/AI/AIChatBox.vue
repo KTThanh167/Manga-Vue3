@@ -184,6 +184,7 @@ const defaultMessages = () => [
 ]
 
 const messages = ref(defaultMessages())
+const lastSearchParams = ref(null)
 
 const loadChatHistory = () => {
   const savedChat = localStorage.getItem(chatStorageKey.value)
@@ -206,6 +207,138 @@ const scrollToBottom = async () => {
   await nextTick()
   if (chatContainer.value) {
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+  }
+}
+
+const OTRUYEN_GENRES = [
+  'Action',
+  'Adult',
+  'Adventure',
+  'Anime',
+  'Comedy',
+  'Cooking',
+  'Cổ đại',
+  'Doujinshi',
+  'Drama',
+  'Ecchi',
+  'Fantasy',
+  'Gender Bender',
+  'Harem',
+  'Historical',
+  'Horror',
+  'Isekai',
+  'Josei',
+  'Live Action',
+  'Manga',
+  'Manhua',
+  'Manhwa',
+  'Martial Arts',
+  'Mature',
+  'Mecha',
+  'Mystery',
+  'Ngôn tình',
+  'One Shot',
+  'PsyChological',
+  'Romance',
+  'School Life',
+  'Sci-fi',
+  'Seinen',
+  'Shoujo',
+  'Shounen',
+  'Slice of Life',
+  'Smut',
+  'Sports',
+  'Supernatural',
+  'Tragedy',
+  'Trinh thám',
+  'Truyện màu',
+  'Webtoon',
+  'Xuyên không',
+]
+
+const GENRE_ALIASES = [
+  { genre: 'Action', terms: ['action', 'hành động', 'hanh dong'] },
+  { genre: 'Adventure', terms: ['adventure', 'phiêu lưu', 'phieu luu'] },
+  { genre: 'Comedy', terms: ['comedy', 'hài', 'hai', 'hài hước', 'hai huoc'] },
+  { genre: 'Cổ đại', terms: ['cổ đại', 'co dai'] },
+  { genre: 'Fantasy', terms: ['fantasy', 'giả tưởng', 'gia tuong'] },
+  { genre: 'Historical', terms: ['historical', 'lịch sử', 'lich su'] },
+  { genre: 'Horror', terms: ['horror', 'kinh dị', 'kinh di'] },
+  { genre: 'Isekai', terms: ['isekai', 'dị giới', 'di gioi'] },
+  { genre: 'Martial Arts', terms: ['martial arts', 'võ thuật', 'vo thuat'] },
+  { genre: 'Mystery', terms: ['mystery', 'bí ẩn', 'bi an'] },
+  { genre: 'Ngôn tình', terms: ['ngôn tình', 'ngon tinh'] },
+  { genre: 'Romance', terms: ['romance', 'lãng mạn', 'lang man', 'tình cảm', 'tinh cam'] },
+  {
+    genre: 'School Life',
+    terms: ['school life', 'học đường', 'hoc duong', 'trường học', 'truong hoc', 'học sinh'],
+  },
+  { genre: 'Sci-fi', terms: ['sci-fi', 'scifi', 'khoa học viễn tưởng', 'khoa hoc vien tuong'] },
+  { genre: 'Sports', terms: ['sports', 'thể thao', 'the thao'] },
+  { genre: 'Supernatural', terms: ['supernatural', 'siêu nhiên', 'sieu nhien'] },
+  { genre: 'Trinh thám', terms: ['trinh thám', 'trinh tham', 'detective'] },
+  { genre: 'Truyện màu', terms: ['truyện màu', 'truyen mau', 'màu', 'mau'] },
+  { genre: 'Xuyên không', terms: ['xuyên không', 'xuyen khong'] },
+]
+
+const normalizeSearchText = (text = '') =>
+  text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const hasSearchTerm = (normalizedQuery, term) => {
+  const normalizedTerm = escapeRegExp(normalizeSearchText(term))
+  const termRegex = new RegExp(`(^|[^a-z0-9])${normalizedTerm}([^a-z0-9]|$)`, 'i')
+  return termRegex.test(normalizedQuery)
+}
+
+const findGenreInQuery = (query) => {
+  const normalizedQuery = normalizeSearchText(query)
+  const aliasMatch = GENRE_ALIASES.find(({ terms }) =>
+    terms.some((term) => hasSearchTerm(normalizedQuery, term)),
+  )
+
+  if (aliasMatch) return aliasMatch.genre
+
+  return (
+    [...OTRUYEN_GENRES]
+      .sort((a, b) => b.length - a.length)
+      .find((genre) => hasSearchTerm(normalizedQuery, genre)) || ''
+  )
+}
+
+const extractMinChapters = (query) => {
+  const normalizedQuery = normalizeSearchText(query)
+  const minMatch = normalizedQuery.match(
+    /(?:tren|hon|tu|toi thieu|it nhat|>=)\s*(\d+)|(\d+)\s*(?:chuong|chap|chapter)/i,
+  )
+
+  return Number(minMatch?.[1] || minMatch?.[2]) || 0
+}
+
+const isFollowUpQuery = (query) => {
+  const normalizedQuery = normalizeSearchText(query)
+  return /(?:tren|hon|duoi|them|nua|loc|bo tren|cai tren|nhu tren|ket qua tren|chuong|chap|chapter)/i.test(
+    normalizedQuery,
+  )
+}
+
+const buildBasicSearchParams = (query) => {
+  const fallbackGenre = findGenreInQuery(query)
+  const minChapters = extractMinChapters(query)
+  const previousParams = lastSearchParams.value
+  const shouldReusePrevious = previousParams && !fallbackGenre && isFollowUpQuery(query)
+
+  return {
+    search_keyword: shouldReusePrevious ? previousParams.search_keyword : query,
+    min_chapters: minChapters || (shouldReusePrevious ? previousParams.min_chapters : 0),
+    filter_genre: fallbackGenre || (shouldReusePrevious ? previousParams.filter_genre : ''),
   }
 }
 
@@ -273,14 +406,21 @@ const sendMessage = async () => {
       .replace(/```/g, '')
       .trim()
 
-    // BỌC THÉP: Luôn đảm bảo có số 0 và chuỗi rỗng để không làm sập Supabase
-    let searchParams = { search_keyword: query, min_chapters: 0, filter_genre: '' }
+    // BỌC THÉP: Luôn có fallback cục bộ để khi AI bị 429 vẫn lọc được thể loại rõ ràng.
+    let searchParams = buildBasicSearchParams(query)
     try {
       if (rawJsonText !== '{}') {
         const parsed = JSON.parse(rawJsonText)
-        searchParams.search_keyword = parsed.search_keyword || query
-        searchParams.min_chapters = Number(parsed.min_chapters) || 0 // Ép chuẩn thành số
-        searchParams.filter_genre = parsed.filter_genre || ''
+        const parsedKeyword = parsed.search_keyword?.trim()
+        const parsedMinChapters = Number(parsed.min_chapters) || 0
+        const currentQueryHasGenre = Boolean(findGenreInQuery(query))
+        const shouldKeepPreviousContext =
+          lastSearchParams.value && !currentQueryHasGenre && isFollowUpQuery(query)
+
+        searchParams.search_keyword =
+          parsedKeyword && !shouldKeepPreviousContext ? parsedKeyword : searchParams.search_keyword
+        searchParams.min_chapters = parsedMinChapters || searchParams.min_chapters // Ép chuẩn thành số
+        searchParams.filter_genre = parsed.filter_genre || searchParams.filter_genre
       }
     } catch (e) {
       console.error('Lỗi khi parse JSON từ AI:', e)
@@ -328,6 +468,7 @@ const sendMessage = async () => {
       console.error('Lỗi từ Supabase:', dbError)
       throw new Error('DB_ERROR')
     }
+    lastSearchParams.value = { ...searchParams }
     console.log('4. Supabase chạy xong! Số truyện tìm thấy:', matchedMangas?.length)
 
     // =====================================================================
@@ -425,6 +566,7 @@ const clearHistory = () => {
     centered: true,
     maskClosable: true,
     onOk() {
+      lastSearchParams.value = null
       messages.value = [
         {
           role: 'ai',
