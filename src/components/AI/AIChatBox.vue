@@ -224,7 +224,7 @@ const sendMessage = async () => {
     const apiKey = rawKey.trim()
 
     const embedModel = 'gemini-embedding-2'
-    const chatModel = 'gemini-2.5-flash' // Model xịn nhất bạn đã dò ra
+    const chatModel = 'gemini-2.5-flash'
 
     // =====================================================================
     // TRẠM 1: GỌI AI PHÂN TÍCH CÂU HỎI THÀNH JSON (TỪ KHÓA + LỌC CỨNG)
@@ -248,7 +248,7 @@ const sendMessage = async () => {
     {
       "search_keyword": "Từ khóa cốt lõi miêu tả nội dung truyện (VD: giấu nghề, trọng sinh, hài hước). Dựa vào cả lịch sử nếu người dùng nói 'giống bộ trên'. Nếu không có, để rỗng",
       "min_chapters": Số lượng chương tối thiểu người dùng muốn (chỉ số, VD: 50). Nếu không nhắc đến, ghi 0,
-      "filter_genre": "Tên thể loại cụ thể nếu có (VD: Tu Tiên, Hành Động). Nếu không, để rỗng"
+      "filter_genre": "Tên thể loại cụ thể nếu có (hãy lấy tên thể loại theo API Otruyen. VD:Action, Adult, Adventure, Anime, Comedy, Cooking, Cổ đại, Doujinshi, Drama, Ecchi, Fantasy, Gender Bender, Harem, Historical, Horror, Isekai, Josei, Live Action, Manga, Manhua, Manhwa, Martial Arts, Mature, Mecha, Mystery, Ngôn tình, One Shot, PsyChological, Romance, School Life, Sci-fi, Seinen, Shoujo, Shounen, Slice of Life, Smut, Sports, Supernatural, Tragedy, Trinh thám, Truyện màu, Webtoon, Xuyên không). Nếu không, để rỗng"
     }`
 
     const extractRes = await fetch(
