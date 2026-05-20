@@ -158,25 +158,49 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch, onMounted, createVNode } from 'vue'
+import { ref, nextTick, watch, onMounted, createVNode, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useAuthStore } from '@/stores/auth'
 import { Modal } from 'ant-design-vue'
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue'
 
+const auth = useAuthStore()
 const isOpen = ref(false)
 const isLoading = ref(false)
 const userInput = ref('')
 const chatContainer = ref(null)
 const loadingMessage = ref('')
+const chatStorageKey = computed(() =>
+  auth.user?.id ? `manga_ai_chat_history:${auth.user.id}` : 'manga_ai_chat_history:guest',
+)
 
 // Tin nhắn chào mừng mặc định
-const messages = ref([
+const defaultMessages = () => [
   {
     role: 'ai',
     content:
       'Chào bạn! Mình là AI tư vấn truyện siêu cấp vũ trụ đây. 🚀<br>Bạn đang muốn tìm bộ truyện có thể loại, cốt truyện hay main như thế nào?',
   },
-])
+]
+
+const messages = ref(defaultMessages())
+
+const loadChatHistory = () => {
+  const savedChat = localStorage.getItem(chatStorageKey.value)
+
+  if (!savedChat) {
+    messages.value = defaultMessages()
+    return
+  }
+
+  try {
+    const parsedChat = JSON.parse(savedChat)
+    messages.value = Array.isArray(parsedChat) ? parsedChat : defaultMessages()
+  } catch (error) {
+    console.warn('Không thể đọc lịch sử chat AI:', error)
+    messages.value = defaultMessages()
+  }
+}
 
 const scrollToBottom = async () => {
   await nextTick()
@@ -408,7 +432,7 @@ const clearHistory = () => {
         },
       ]
 
-      localStorage.removeItem('manga_ai_chat_history')
+      localStorage.removeItem(chatStorageKey.value)
     },
     onCancel() {
       console.log('Đã hủy thao tác xóa lịch sử chat')
@@ -418,22 +442,26 @@ const clearHistory = () => {
 
 // Khi component được mount, tải lịch sử chat từ localStorage nếu có
 onMounted(() => {
-  const savedChat = localStorage.getItem('manga_ai_chat_history')
-  if (savedChat) {
-    messages.value = JSON.parse(savedChat)
-    // Đẩy thanh cuộn xuống cuối sau khi render xong chữ
-    nextTick(() => scrollToBottom())
-  }
+  loadChatHistory()
+  nextTick(() => scrollToBottom())
 })
 
 // Mỗi khi messages thay đổi, lưu lại vào localStorage
 watch(
   messages,
   (newVal) => {
-    localStorage.setItem('manga_ai_chat_history', JSON.stringify(newVal))
+    localStorage.setItem(chatStorageKey.value, JSON.stringify(newVal))
   },
   { deep: true },
 ) // Dùng deep: true để theo dõi sự thay đổi bên trong mảng
+
+watch(
+  () => auth.user?.id,
+  () => {
+    loadChatHistory()
+    nextTick(() => scrollToBottom())
+  },
+)
 </script>
 
 <style scoped>
