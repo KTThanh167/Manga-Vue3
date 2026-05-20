@@ -12,10 +12,10 @@ const currentPage = computed(() => {
   return Number(route.query.page) || 1
 })
 
-// 2. Giả định mỗi trang có 24 item
-const itemsPerPage = 24
+// 2. Dùng số item/page do API trả về để phân trang khớp với Otruyen
+const itemsPerPage = computed(() => homeStore.totalItemsPerPage || 24)
 const totalPages = computed(() => {
-  return Math.ceil(homeStore.totalItems / itemsPerPage) || 1
+  return Math.ceil(homeStore.totalItems / itemsPerPage.value) || 1
 })
 
 // 3. Logic hiển thị các số trang
