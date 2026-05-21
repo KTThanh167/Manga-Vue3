@@ -15,25 +15,18 @@
             @click="router.push('/admin/users')"
           />
           <StatCard
-            title="Tổng Truyện"
-            :value="stats.totalMangas"
-            icon="📚"
-            colorClass="bg-gradient-to-br from-emerald-500 to-teal-500"
+            title="Truyện API Otruyen"
+            :value="stats.totalApiMangas"
+            icon="🌐"
+            colorClass="bg-gradient-to-br from-amber-400 to-orange-500"
             @click="router.push('/admin/manga')"
           />
           <StatCard
-            title="Lượt Đọc"
-            :value="stats.totalReads"
-            icon="📖"
+            title="Truyện User Sáng Tác"
+            :value="stats.totalUserMangas"
+            icon="✍️"
             colorClass="bg-gradient-to-br from-purple-500 to-pink-500"
-            @click="router.push('/admin/dashboard')"
-          />
-          <StatCard
-            title="Đánh Giá"
-            :value="stats.totalRatings"
-            icon="⭐"
-            colorClass="bg-gradient-to-br from-amber-400 to-orange-500"
-            @click="router.push('/admin/dashboard')"
+            @click="router.push('/admin/local-manga')"
           />
         </div>
 
@@ -106,7 +99,7 @@ import { sync50Mangas } from '@/services/AI/syncManga.js'
 const router = useRouter()
 const authStore = useAuthStore()
 const userProfile = ref(null)
-const stats = ref({ totalUsers: 0, totalMangas: 0, totalReads: 0, totalRatings: 0 })
+const stats = ref({ totalUsers: 0, totalMangas: 0, totalUserMangas: 0, totalApiMangas: 0 })
 
 // Trạng thái loading của nút nạp AI
 const isSyncing = ref(false)
@@ -160,9 +153,8 @@ const navigateToSection = (section) => {
 
 const fetchStats = async () => {
   try {
-    const [usersCount, readsCount, otruyenRes, mangas] = await Promise.allSettled([
+    const [usersCount, otruyenRes, mangas] = await Promise.allSettled([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('reading_history').select('*', { count: 'exact', head: true }),
       axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1', {
         timeout: 12000,
       }),
@@ -170,18 +162,17 @@ const fetchStats = async () => {
     ])
 
     const usersData = usersCount.status === 'fulfilled' ? usersCount.value : null
-    const readsData = readsCount.status === 'fulfilled' ? readsCount.value : null
     const apiData = otruyenRes.status === 'fulfilled' ? otruyenRes.value : null
     const mangasData = mangas.status === 'fulfilled' ? mangas.value : null
 
     const totalApiMangas = apiData?.data?.data?.params?.pagination?.totalItems || 0
-    const totalLocalMangas = mangasData?.count || 0
+    const totalUserMangas = mangasData?.count || 0
 
     stats.value = {
       totalUsers: usersData?.count || 0,
-      totalMangas: totalApiMangas + totalLocalMangas,
-      totalReads: readsData?.count || 0,
-      totalRatings: 0,
+      totalMangas: totalApiMangas + totalUserMangas,
+      totalUserMangas,
+      totalApiMangas,
     }
   } catch (err) {
     console.error('Lỗi khi lấy dữ liệu thống kê:', err)
@@ -218,7 +209,9 @@ const refreshAfterIdle = async () => {
     await fetchStats()
   } catch (error) {
     console.error('Không thể phục hồi phiên admin:', error)
-    message.warning('Phiên làm việc bị gián đoạn. Vui lòng đăng nhập lại nếu thao tác không thành công.')
+    message.warning(
+      'Phiên làm việc bị gián đoạn. Vui lòng đăng nhập lại nếu thao tác không thành công.',
+    )
   }
 }
 
