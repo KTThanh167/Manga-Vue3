@@ -88,11 +88,12 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { message } from 'ant-design-vue'
+import { useAuthStore } from '@/stores/auth'
 
 // Import Layout Components
 import AdminHeader from '@/components/Admin/AdminHeader.vue'
@@ -103,6 +104,7 @@ import QuickActions from '@/components/Admin/QuickActions.vue'
 import { sync50Mangas } from '@/services/AI/syncManga.js'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const userProfile = ref(null)
 const stats = ref({ totalUsers: 0, totalMangas: 0, totalReads: 0, totalRatings: 0 })
 
@@ -158,20 +160,27 @@ const navigateToSection = (section) => {
 
 const fetchStats = async () => {
   try {
-    const [usersCount, readsCount, otruyenRes, mangas] = await Promise.all([
+    const [usersCount, readsCount, otruyenRes, mangas] = await Promise.allSettled([
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
       supabase.from('reading_history').select('*', { count: 'exact', head: true }),
-      axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1'),
+      axios.get('https://otruyenapi.com/v1/api/danh-sach/truyen-moi?page=1', {
+        timeout: 12000,
+      }),
       supabase.from('mangas').select('*', { count: 'exact', head: true }),
     ])
 
-    const totalApiMangas = otruyenRes.data?.data?.params?.pagination?.totalItems || 0
-    const totalLocalMangas = mangas.count || 0
+    const usersData = usersCount.status === 'fulfilled' ? usersCount.value : null
+    const readsData = readsCount.status === 'fulfilled' ? readsCount.value : null
+    const apiData = otruyenRes.status === 'fulfilled' ? otruyenRes.value : null
+    const mangasData = mangas.status === 'fulfilled' ? mangas.value : null
+
+    const totalApiMangas = apiData?.data?.data?.params?.pagination?.totalItems || 0
+    const totalLocalMangas = mangasData?.count || 0
 
     stats.value = {
-      totalUsers: usersCount.count || 0,
+      totalUsers: usersData?.count || 0,
       totalMangas: totalApiMangas + totalLocalMangas,
-      totalReads: readsCount.count || 0,
+      totalReads: readsData?.count || 0,
       totalRatings: 0,
     }
   } catch (err) {
@@ -195,9 +204,32 @@ const handleLogout = async () => {
   router.push('/login')
 }
 
+const refreshAfterIdle = async () => {
+  if (document.visibilityState !== 'visible') return
+
+  try {
+    await new Promise((resolve) => window.setTimeout(resolve, 800))
+    if (!authStore.user) {
+      router.push('/login')
+      return
+    }
+
+    await checkAdminAccess()
+    await fetchStats()
+  } catch (error) {
+    console.error('Không thể phục hồi phiên admin:', error)
+    message.warning('Phiên làm việc bị gián đoạn. Vui lòng đăng nhập lại nếu thao tác không thành công.')
+  }
+}
+
 onMounted(async () => {
   await checkAdminAccess()
   await fetchStats()
+  document.addEventListener('visibilitychange', refreshAfterIdle)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', refreshAfterIdle)
 })
 </script>
 

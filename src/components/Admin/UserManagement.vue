@@ -85,26 +85,32 @@ const goToPage = (page) => {
 
 // Kiểm tra quyền Admin
 const checkIsAdmin = async () => {
-  const result = await supabase.auth.getUser()
-  const user = result?.data?.user
+  try {
+    const result = await supabase.auth.getUser()
+    const user = result?.data?.user
 
-  if (!user) {
-    message.error('Bạn chưa đăng nhập hoặc phiên đã hết hạn.')
+    if (!user) {
+      message.error('Bạn chưa đăng nhập hoặc phiên đã hết hạn.')
+      return false
+    }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileErr || !profile || profile.role !== 'admin') {
+      message.error('Từ chối truy cập: Bạn cần quyền Admin để thực hiện thao tác này.')
+      return false
+    }
+
+    return true
+  } catch (error) {
+    console.error('Lỗi kiểm tra quyền admin:', error)
+    message.error('Kết nối bị gián đoạn. Vui lòng thử lại.')
     return false
   }
-
-  const { data: profile, error: profileErr } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single()
-
-  if (profileErr || !profile || profile.role !== 'admin') {
-    message.error('Từ chối truy cập: Bạn cần quyền Admin để thực hiện thao tác này.')
-    return false
-  }
-
-  return true
 }
 
 // Lấy dữ liệu song song

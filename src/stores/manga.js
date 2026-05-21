@@ -189,7 +189,6 @@ export const useMangaStore = defineStore('manga', {
 
     // Hàm này sẽ được gọi khi người dùng đăng nhập để đồng bộ bookmark từ DB về Local
     async loadBookmarks() {
-      const auth = useAuthStore()
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -225,7 +224,7 @@ export const useMangaStore = defineStore('manga', {
               if (res.data?.data?.item?.chaptersLatest) {
                 return { ...manga, chaptersLatest: res.data.data.item.chaptersLatest }
               }
-            } catch (err) {
+            } catch {
               console.warn(`Không cập nhật được chương mới cho ${manga.slug}`)
             }
             return manga // Trả về manga cũ nếu API lỗi

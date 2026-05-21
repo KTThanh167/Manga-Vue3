@@ -1,12 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { supabase } from '@/lib/supabaseClient'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const user = ref(null)
 const isDropdownOpen = ref(false)
 const isDarkMode = ref(false)
 
@@ -26,31 +24,15 @@ onMounted(async () => {
     html.classList.remove('dark')
     isDarkMode.value = false
   }
-
-  // KHỞI TẠO DỮ LIỆU USER
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  user.value = session?.user ?? null
-
-  if (user.value && !authStore.profile) {
-    await authStore.fetchProfile()
-  }
-
-  // LẮNG NGHE THAY ĐỔI AUTH
-  supabase.auth.onAuthStateChange(async (_event, session) => {
-    user.value = session?.user ?? null
-    if (user.value) await authStore.fetchProfile()
-  })
 })
 
 // 2. Computed xử lý tên hiển thị ưu tiên Username từ Store
 const userName = computed(() => {
-  if (!user.value) return 'Khách'
+  if (!authStore.user) return 'Khách'
   return (
     authStore.profile?.username ||
-    user.value.user_metadata?.username ||
-    user.value.email.split('@')[0]
+    authStore.user.user_metadata?.username ||
+    authStore.user.email.split('@')[0]
   )
 })
 
@@ -63,14 +45,9 @@ const closeDropdown = () => {
 }
 
 const handleLogout = async () => {
-  const { error } = await supabase.auth.signOut()
-  if (error) {
-    console.error('Lỗi đăng xuất:', error.message)
-  } else {
-    authStore.clearProfile() // Xóa thông tin profile trong store
-    isDropdownOpen.value = false
-    router.push('/')
-  }
+  await authStore.logout()
+  isDropdownOpen.value = false
+  router.push('/')
 }
 
 // 5. Tính năng Dark Mode Toggle
@@ -184,7 +161,7 @@ const vClickOutside = {
           </svg>
         </router-link>
 
-        <div v-if="user" class="relative">
+        <div v-if="authStore.user" class="relative">
           <button
             id="user-menu-btn"
             @click="isDropdownOpen = !isDropdownOpen"
@@ -232,7 +209,7 @@ const vClickOutside = {
                   {{ userName }}
                 </p>
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">
-                  {{ user.email }}
+                  {{ authStore.user.email }}
                 </p>
               </div>
 
