@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from '../../lib/supabaseClient'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 
 const users = ref([])
 const loading = ref(false)
@@ -190,28 +190,36 @@ const toggleUserStatus = async (user) => {
 
 // Xóa User
 const deleteUser = async (user) => {
-  if (!confirm(`Bạn có chắc muốn xóa hồ sơ "${user.username || user.email}"?`)) return
+  Modal.confirm({
+    title: 'Xác nhận xóa người dùng?',
+    content: `Bạn có chắc muốn xóa hồ sơ "${user.username || user.email}" không?`,
+    okText: 'Xóa',
+    okType: 'danger',
+    cancelText: 'Hủy',
+    centered: true,
+    async onOk() {
+      const isAdmin = await checkIsAdmin()
+      if (!isAdmin) return
 
-  const isAdmin = await checkIsAdmin()
-  if (!isAdmin) return
+      try {
+        if (user.user_type === 'supabase') {
+          message.warning(
+            'LƯU Ý: Thao tác này chỉ xóa hồ sơ hiển thị (Profile). Để xóa vĩnh viễn tài khoản đăng nhập của người này, bạn cần vào Dashboard Supabase -> mục Authentication -> Users để xóa.',
+          )
+        }
 
-  try {
-    if (user.user_type === 'supabase') {
-      message.warning(
-        'LƯU Ý: Thao tác này chỉ xóa hồ sơ hiển thị (Profile). Để xóa vĩnh viễn tài khoản đăng nhập của người này, bạn cần vào Dashboard Supabase -> mục Authentication -> Users để xóa.',
-      )
-    }
+        const table = user.user_type === 'supabase' ? 'profiles' : 'custom_users'
+        const { error } = await supabase.from(table).delete().eq('id', user.id)
+        if (error) throw error
 
-    const table = user.user_type === 'supabase' ? 'profiles' : 'custom_users'
-    const { error } = await supabase.from(table).delete().eq('id', user.id)
-    if (error) throw error
-
-    await fetchUsers()
-    message.success('Đã xóa hồ sơ người dùng thành công!')
-  } catch (error) {
-    console.error('Lỗi khi xóa:', error)
-    message.error('Không thể xóa người dùng.')
-  }
+        await fetchUsers()
+        message.success('Đã xóa hồ sơ người dùng thành công!')
+      } catch (error) {
+        console.error('Lỗi khi xóa:', error)
+        message.error('Không thể xóa người dùng.')
+      }
+    },
+  })
 }
 
 // Thêm custom user
