@@ -233,7 +233,11 @@ const handleLogin = async () => {
     message.destroy('loginProcess')
     message.success(`Chào mừng ${profile?.username || 'độc giả'} trở lại!`)
 
-    profile?.role === 'admin' ? router.push('/admin/dashboard') : router.push('/')
+    if (profile?.role === 'admin') {
+      router.push('/admin/dashboard')
+    } else {
+      router.push('/')
+    }
   } catch (err) {
     console.error('Login error:', err)
     message.destroy('loginProcess')

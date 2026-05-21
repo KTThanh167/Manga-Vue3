@@ -11,23 +11,28 @@ const loading = ref(false)
 const fetchMangas = async () => {
   loading.value = true
 
-  const { data, error } = await supabase
-    .from('mangas')
-    .select('*')
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('mangas')
+      .select('*')
+      .order('created_at', { ascending: false })
 
-  if (error) {
+    if (error) {
+      console.error('Lỗi khi fetch:', error)
+      message.error('Không thể tải danh sách truyện.')
+      return
+    }
+    mangas.value = (data || []).map((m) => ({
+      ...m,
+      name: m.title,
+      thumb_url: m.thumbnail_url,
+    }))
+  } catch (error) {
     console.error('Lỗi khi fetch:', error)
+    message.error('Kết nối bị gián đoạn. Vui lòng thử lại.')
+  } finally {
     loading.value = false
-    return
   }
-  mangas.value = (data || []).map((m) => ({
-    ...m,
-    name: m.title,
-    thumb_url: m.thumbnail_url,
-  }))
-
-  loading.value = false
 }
 
 // Chuyển hướng sang View riêng để thêm mới

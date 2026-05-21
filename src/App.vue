@@ -14,9 +14,9 @@ onMounted(async () => {
 
 // 2. Tự động phản ứng khi trạng thái user thay đổi
 watch(
-  () => auth.user,
-  async (newUser) => {
-    if (newUser) {
+  () => auth.user?.id,
+  async (userId) => {
+    if (userId) {
       await mangaStore.fetchReadingHistory()
       await mangaStore.loadBookmarks()
     }

@@ -75,8 +75,8 @@ export const useHomeStore = defineStore('home', () => {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '') // Xóa dấu tiếng Việt
       .replace(/\s+/g, '-') // Thay khoảng trắng bằng dấu gạch ngang
-      .replace(/[^\w\-]+/g, '') // Xóa các ký tự đặc biệt
-      .replace(/\-\-+/g, '-') // Xóa các gạch ngang liên tiếp
+      .replace(/[^\w-]+/g, '') // Xóa các ký tự đặc biệt
+      .replace(/--+/g, '-') // Xóa các gạch ngang liên tiếp
       .replace(/^-+/, '')
       .replace(/-+$/, '')
   }
