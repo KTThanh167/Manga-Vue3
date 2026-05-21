@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, watch } from 'vue'
+import { watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHomeStore } from '@/stores/home'
 import RecommendationSection from '@/components/Home/RecommendationSection.vue'
@@ -28,11 +28,6 @@ watch(
   },
   { immediate: true },
 )
-
-// 3. Khi F5 hoặc lần đầu vào trang
-onMounted(async () => {
-  await loadData()
-})
 </script>
 
 <template>
