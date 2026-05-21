@@ -295,39 +295,6 @@ export const useHomeStore = defineStore('home', () => {
     }
   }
 
-  /**
-   * ĐẾM NGƯỜI ONLINE: Sử dụng Supabase Presence để theo dõi thời gian thực
-   */
-  const fetchAndListen = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    currentUser.value = user
-
-    const channel = supabase.channel('online-users', {
-      config: {
-        presence: {
-          key: user?.id || 'guest-' + Math.random().toString(36).substring(7),
-        },
-      },
-    })
-
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        onlineCount.value = Object.keys(channel.presenceState()).length
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track({
-            online_at: new Date().toISOString(),
-            user_name: user?.user_metadata?.username || 'Khách',
-          })
-        }
-      })
-
-    return channel
-  }
-
   // ==========================================
   // 3. XUẤT DỮ LIỆU (EXPORTS)
   // ==========================================
@@ -351,7 +318,6 @@ export const useHomeStore = defineStore('home', () => {
     // Actions
     fetchHomeData,
     fetchListData,
-    fetchAndListen,
     searchMangas,
     filterByCategory,
     getSuggestions,

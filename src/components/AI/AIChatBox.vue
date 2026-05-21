@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed bottom-6 right-6 z-50 flex flex-col items-end">
+  <div class="fixed bottom-8 right-6 z-50 flex flex-col items-end">
     <transition name="chat-bounce">
       <div
         v-if="isOpen"

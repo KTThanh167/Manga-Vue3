@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useAuthStore } from '../../stores/auth'
+import { message } from 'ant-design-vue'
 
 const authStore = useAuthStore()
 
@@ -12,6 +13,7 @@ const reactions = ref([])
 const newMessage = ref('')
 const currentUser = ref(null)
 const chatContainer = ref(null)
+const isSending = ref(false)
 let chatChannel = null
 
 const scrollToBottom = async () => {
@@ -59,33 +61,74 @@ const toggleReaction = async (messageId, emoji) => {
   }
 }
 
-const fetchAndListen = async () => {
+const fetchCurrentUser = async () => {
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser()
-  currentUser.value = user
 
+  if (error) {
+    console.warn('Không thể xác thực phiên chat:', error.message)
+  }
+
+  currentUser.value = user
+  return user
+}
+
+const fetchMessages = async () => {
   // 1. CẬP NHẬT QUERY: Lấy thêm role từ bảng profiles (Cú pháp rút gọn)
-  const { data: msgData } = await supabase
+  const { data: msgData, error: msgError } = await supabase
     .from('global_messages')
     .select('*, profiles(role)')
     .order('created_at', { ascending: true })
     .limit(50)
 
+  if (msgError) {
+    console.error('Lỗi tải Global Chat:', msgError)
+    return
+  }
+
   messages.value = msgData || []
 
   if (messages.value.length > 0) {
     const messageIds = messages.value.map((m) => m.id)
-    const { data: reactData } = await supabase
+    const { data: reactData, error: reactError } = await supabase
       .from('message_reactions')
       .select('*')
       .in('message_id', messageIds)
-    reactions.value = reactData || []
+
+    if (reactError) {
+      console.error('Lỗi tải cảm xúc Global Chat:', reactError)
+      reactions.value = []
+    } else {
+      reactions.value = reactData || []
+    }
+  } else {
+    reactions.value = []
   }
 
   await scrollToBottom()
+}
 
-  const channel = supabase
+const appendMessage = (msg) => {
+  if (!msg?.id) return
+  const exists = messages.value.some((m) => m.id === msg.id)
+  if (!exists) {
+    messages.value.push(msg)
+    scrollToBottom()
+  }
+}
+
+const removeChatChannel = async () => {
+  if (!chatChannel) return
+  await supabase.removeChannel(chatChannel)
+  chatChannel = null
+}
+
+const startRealtime = async () => {
+  await removeChatChannel()
+
+  chatChannel = supabase
     .channel('global-chat-room')
     .on(
       'postgres_changes',
@@ -101,11 +144,10 @@ const fetchAndListen = async () => {
             .single()
 
           if (newMsgWithProfile) {
-            messages.value.push(newMsgWithProfile)
+            appendMessage(newMsgWithProfile)
           } else {
-            messages.value.push(payload.new) // Fallback nếu có lỗi
+            appendMessage(payload.new) // Fallback nếu có lỗi
           }
-          scrollToBottom()
         }
       },
     )
@@ -124,27 +166,58 @@ const fetchAndListen = async () => {
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') console.log('Đã kết nối Realtime thành công!')
     })
+}
 
-  return channel
+const syncChat = async () => {
+  await fetchCurrentUser()
+  await fetchMessages()
+}
+
+const fetchAndListen = async () => {
+  await syncChat()
+  await startRealtime()
+}
+
+const handleVisibilityChange = async () => {
+  if (document.visibilityState !== 'visible') return
+  await syncChat()
+  await startRealtime()
 }
 
 const sendMessage = async () => {
-  if (!newMessage.value.trim() || !currentUser.value) return
+  if (!newMessage.value.trim() || !currentUser.value || isSending.value) return
   const content = newMessage.value
   newMessage.value = ''
+  isSending.value = true
 
-  const displayName =
-    authStore.profile?.username || currentUser.value.user_metadata.username || 'Thành viên'
+  try {
+    const displayName =
+      authStore.profile?.username || currentUser.value.user_metadata?.username || 'Thành viên'
 
-  const { error } = await supabase.from('global_messages').insert({
-    user_id: currentUser.value.id,
-    user_name: displayName,
-    content: content,
-  })
+    const { data: insertedMessage, error } = await supabase
+      .from('global_messages')
+      .insert({
+        user_id: currentUser.value.id,
+        user_name: displayName,
+        content: content,
+      })
+      .select('*, profiles(role)')
+      .single()
 
-  if (error) {
+    if (error) {
+      console.error('Lỗi gửi tin:', error)
+      newMessage.value = content
+      message.error('Không thể gửi tin nhắn. Vui lòng thử lại.')
+      return
+    }
+
+    appendMessage(insertedMessage)
+  } catch (error) {
     console.error('Lỗi gửi tin:', error)
     newMessage.value = content
+    message.error('Không thể gửi tin nhắn. Vui lòng thử lại.')
+  } finally {
+    isSending.value = false
   }
 }
 
@@ -159,10 +232,12 @@ const getInitial = (name) => {
 }
 
 onMounted(async () => {
-  chatChannel = await fetchAndListen()
+  await fetchAndListen()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
 })
 onUnmounted(() => {
-  if (chatChannel) supabase.removeChannel(chatChannel)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  removeChatChannel()
 })
 </script>
 
@@ -311,12 +386,13 @@ onUnmounted(() => {
         <input
           v-model="newMessage"
           @keyup.enter="sendMessage"
+          :disabled="isSending"
           placeholder="Nhập tin nhắn..."
-          class="flex-1 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-neutral-900 text-gray-800 dark:text-white placeholder-gray-400 outline-none transition-all"
+          class="flex-1 bg-gray-50 dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-2xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-neutral-900 text-gray-800 dark:text-white placeholder-gray-400 outline-none transition-all disabled:opacity-70"
         />
         <button
           @click="sendMessage"
-          :disabled="!newMessage.trim()"
+          :disabled="!newMessage.trim() || isSending"
           class="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-300 dark:disabled:bg-neutral-700 text-white p-2.5 rounded-2xl transition-all shadow-md shadow-indigo-500/20 active:scale-95 flex items-center justify-center shrink-0 border border-transparent"
         >
           <svg
