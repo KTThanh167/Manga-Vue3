@@ -3,6 +3,7 @@ import { onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMangaStore } from '@/stores/manga'
 import { supabase } from '@/lib/supabaseClient'
+import { message, Modal } from 'ant-design-vue'
 
 const mangaStore = useMangaStore()
 const router = useRouter()
@@ -36,14 +37,22 @@ const formatTime = (dateStr) => {
 }
 
 const deleteItem = async (id, name) => {
-  if (confirm(`Bạn có chắc chắn muốn xóa "${name}" khỏi lịch sử đọc không?`)) {
-    const { error } = await supabase.from('reading_history').delete().eq('id', id)
-    if (!error) {
-      mangaStore.readingHistory = mangaStore.readingHistory.filter((item) => item.id !== id)
-    } else {
-      alert('Không thể xóa lịch sử, vui lòng thử lại!')
-    }
-  }
+  Modal.confirm({
+    title: 'Xác nhận xóa lịch sử?',
+    content: `Bạn có chắc chắn muốn xóa "${name}" khỏi lịch sử đọc không?`,
+    okText: 'Xóa',
+    okType: 'danger',
+    cancelText: 'Hủy',
+    centered: true,
+    async onOk() {
+      const { error } = await supabase.from('reading_history').delete().eq('id', id)
+      if (!error) {
+        mangaStore.readingHistory = mangaStore.readingHistory.filter((item) => item.id !== id)
+      } else {
+        message.error('Không thể xóa lịch sử, vui lòng thử lại!')
+      }
+    },
+  })
 }
 
 const isLocalHistoryItem = (item) => {
