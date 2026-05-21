@@ -32,8 +32,6 @@ watch(
 // 3. Khi F5 hoặc lần đầu vào trang
 onMounted(async () => {
   await loadData()
-
-  await homeStore.fetchAndListen()
 })
 </script>
 
