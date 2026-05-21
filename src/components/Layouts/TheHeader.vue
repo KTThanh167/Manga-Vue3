@@ -123,7 +123,7 @@ const vClickOutside = {
       </router-link>
 
       <div class="flex items-center gap-3 sm:gap-5">
-        <router-link to="/search" class="group relative hidden sm:block">
+        <router-link :to="{ path: '/search', query: { focus: '1' } }" class="group relative hidden sm:block">
           <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <svg
               class="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors"
@@ -148,7 +148,7 @@ const vClickOutside = {
         </router-link>
 
         <router-link
-          to="/search"
+          :to="{ path: '/search', query: { focus: '1' } }"
           class="sm:hidden w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-slate-800 text-gray-500 hover:text-indigo-600 transition-colors"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
