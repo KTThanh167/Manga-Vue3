@@ -1,4 +1,6 @@
 <script setup>
+import { ref } from 'vue'
+
 defineProps({
   modelValue: String,
   suggestions: Array,
@@ -7,6 +9,15 @@ defineProps({
 })
 
 const emit = defineEmits(['update:modelValue', 'search', 'selectSuggestion', 'focus'])
+const searchInput = ref(null)
+
+const focusInput = () => {
+  searchInput.value?.focus()
+}
+
+defineExpose({
+  focusInput,
+})
 </script>
 
 <template>
@@ -48,6 +59,7 @@ const emit = defineEmits(['update:modelValue', 'search', 'selectSuggestion', 'fo
               </svg>
             </div>
             <input
+              ref="searchInput"
               :value="modelValue"
               @input="emit('update:modelValue', $event.target.value)"
               @keyup.enter="emit('search')"

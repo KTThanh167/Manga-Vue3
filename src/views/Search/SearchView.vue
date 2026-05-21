@@ -17,6 +17,7 @@ const router = useRouter()
 const keyword = ref('')
 const selectedCategory = ref('')
 const showSuggestions = ref(false)
+const searchBannerRef = ref(null)
 let debounceTimer = null
 
 // --- LOGIC ĐỒNG BỘ URL ---
@@ -25,6 +26,15 @@ const updateURL = (params) => {
     path: route.path,
     query: { ...route.query, ...params },
   })
+}
+
+const shouldFocusSearchInput = (query = route.query) => query.focus === '1' || (!query.q && !query.category)
+
+const focusSearchInput = async () => {
+  await nextTick()
+  setTimeout(() => {
+    searchBannerRef.value?.focusInput()
+  }, 50)
 }
 
 // Khởi tạo dữ liệu khi load trang
@@ -39,6 +49,10 @@ onMounted(async () => {
   } else if (q) {
     keyword.value = q
     await homeStore.searchMangas(q, qPage)
+  }
+
+  if (shouldFocusSearchInput()) {
+    focusSearchInput()
   }
 })
 
@@ -73,6 +87,10 @@ watch(
         }
       }, 50)
     })
+
+    if (shouldFocusSearchInput(newQuery)) {
+      focusSearchInput()
+    }
   },
 )
 
@@ -95,7 +113,12 @@ const startSearch = (page = 1) => {
   if (!keyword.value.trim()) return
   selectedCategory.value = ''
   showSuggestions.value = false
-  updateURL({ q: keyword.value, category: undefined, page: page > 1 ? page : undefined })
+  updateURL({
+    q: keyword.value,
+    category: undefined,
+    page: page > 1 ? page : undefined,
+    focus: undefined,
+  })
 }
 
 // Hành động chọn Thể loại (Có tính năng Bỏ chọn - Hủy lọc)
@@ -110,7 +133,7 @@ const handleSelectCategory = (slug) => {
   keyword.value = ''
   showSuggestions.value = false
   // Reset về page 1 khi đổi thể loại
-  updateURL({ category: slug, q: undefined, page: undefined })
+  updateURL({ category: slug, q: undefined, page: undefined, focus: undefined })
 }
 
 // Xử lý chuyển trang từ Pagination
@@ -126,7 +149,7 @@ const selectSuggestion = (manga) => {
 const resetFilters = () => {
   keyword.value = ''
   selectedCategory.value = ''
-  updateURL({ q: undefined, category: undefined, page: undefined })
+  updateURL({ q: undefined, category: undefined, page: undefined, focus: undefined })
 }
 </script>
 
@@ -157,6 +180,7 @@ const resetFilters = () => {
     </div>
 
     <SearchBanner
+      ref="searchBannerRef"
       class="relative z-50"
       v-model="keyword"
       :suggestions="homeStore.searchSuggestions"
