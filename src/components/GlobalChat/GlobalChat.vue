@@ -13,6 +13,7 @@ const reactions = ref([])
 const newMessage = ref('')
 const currentUser = ref(null)
 const chatContainer = ref(null)
+const messageInput = ref(null)
 const isSending = ref(false)
 let chatChannel = null
 
@@ -119,6 +120,11 @@ const appendMessage = (msg) => {
   }
 }
 
+const focusMessageInput = async () => {
+  await nextTick()
+  messageInput.value?.focus()
+}
+
 const removeChatChannel = async () => {
   if (!chatChannel) return
   await supabase.removeChannel(chatChannel)
@@ -218,6 +224,7 @@ const sendMessage = async () => {
     message.error('Không thể gửi tin nhắn. Vui lòng thử lại.')
   } finally {
     isSending.value = false
+    focusMessageInput()
   }
 }
 
@@ -384,6 +391,7 @@ onUnmounted(() => {
     >
       <div v-if="currentUser" class="flex gap-2">
         <input
+          ref="messageInput"
           v-model="newMessage"
           @keyup.enter="sendMessage"
           :disabled="isSending"
