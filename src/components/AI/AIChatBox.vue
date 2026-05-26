@@ -115,12 +115,12 @@
         >
           <div class="relative flex items-center">
             <input
+              ref="messageInput"
               v-model="userInput"
               @keyup.enter="sendMessage"
               type="text"
               placeholder="Hỏi AI tìm truyện..."
               class="w-full bg-gray-100 dark:bg-slate-800 border border-transparent focus:border-indigo-300 dark:focus:border-indigo-500/50 rounded-full pl-5 pr-12 py-3.5 text-sm outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400 font-medium"
-              :disabled="isLoading"
             />
             <button
               @click="sendMessage"
@@ -169,6 +169,7 @@ const isOpen = ref(false)
 const isLoading = ref(false)
 const userInput = ref('')
 const chatContainer = ref(null)
+const messageInput = ref(null)
 const loadingMessage = ref('')
 const chatStorageKey = computed(() =>
   auth.user?.id ? `manga_ai_chat_history:${auth.user.id}` : 'manga_ai_chat_history:guest',
@@ -208,6 +209,11 @@ const scrollToBottom = async () => {
   if (chatContainer.value) {
     chatContainer.value.scrollTop = chatContainer.value.scrollHeight
   }
+}
+
+const focusMessageInput = async () => {
+  await nextTick()
+  messageInput.value?.focus()
 }
 
 const OTRUYEN_GENRES = [
@@ -350,6 +356,7 @@ const sendMessage = async () => {
   isLoading.value = true
   loadingMessage.value = 'Đang đọc hiểu yêu cầu của bạn...'
   scrollToBottom()
+  focusMessageInput()
 
   try {
     const rawKey = import.meta.env.VITE_GEMINI_API_KEY
@@ -550,6 +557,7 @@ const sendMessage = async () => {
   } finally {
     isLoading.value = false
     scrollToBottom()
+    focusMessageInput()
     loadingMessage.value = ''
   }
 }
@@ -604,6 +612,12 @@ watch(
     nextTick(() => scrollToBottom())
   },
 )
+
+watch(isOpen, (opened) => {
+  if (opened) {
+    scrollToBottom()
+  }
+})
 </script>
 
 <style scoped>

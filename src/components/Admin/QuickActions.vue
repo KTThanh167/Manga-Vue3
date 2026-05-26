@@ -69,7 +69,7 @@ defineEmits(['changeSection'])
               Truyện Nội Bộ
             </h4>
             <p class="text-[11px] font-medium text-gray-500 dark:text-gray-400 mt-0.5">
-              Thêm, sửa truyện nội bộ
+              Thêm, sửa, xóa truyện nội bộ
             </p>
           </div>
         </button>
