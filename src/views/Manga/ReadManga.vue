@@ -10,7 +10,12 @@
     ></div>
 
     <div
-      class="fixed top-[102px] left-0 right-0 z-50 shadow-sm dark:shadow-slate-900/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800/60"
+      class="fixed top-[102px] left-0 right-0 z-50 shadow-sm dark:shadow-slate-900/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-gray-200 dark:border-slate-800/60 transition-all duration-300 ease-out"
+      :class="
+        isReaderHeaderVisible
+          ? 'translate-y-0 opacity-100'
+          : '-translate-y-[calc(100%+110px)] opacity-0 pointer-events-none'
+      "
     >
       <ReaderHeader
         :comicName="chapterData?.comic_name"
@@ -121,7 +126,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import { supabase } from '@/lib/supabaseClient'
@@ -141,6 +146,8 @@ const chapterData = ref(null)
 const images = ref([])
 const loading = ref(true)
 const error = ref(null)
+const isReaderHeaderVisible = ref(true)
+const lastScrollY = ref(0)
 
 const normalizeData = (data, isLocal, extra = {}) => {
   if (isLocal) {
@@ -303,9 +310,31 @@ const changeChapter = async (offset) => {
   }
 }
 
-const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
+const handleReaderScroll = () => {
+  const currentScrollY = window.scrollY
+  const scrollDelta = currentScrollY - lastScrollY.value
 
-onMounted(fetchChapterData)
+  if (currentScrollY < 120) {
+    isReaderHeaderVisible.value = true
+  } else if (Math.abs(scrollDelta) > 8) {
+    isReaderHeaderVisible.value = scrollDelta < 0
+  }
+
+  lastScrollY.value = currentScrollY
+}
+
+const scrollToTop = () => {
+  isReaderHeaderVisible.value = true
+  lastScrollY.value = 0
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+onMounted(() => {
+  lastScrollY.value = window.scrollY
+  window.addEventListener('scroll', handleReaderScroll, { passive: true })
+  fetchChapterData()
+})
+onUnmounted(() => window.removeEventListener('scroll', handleReaderScroll))
 watch(() => route.params.chapter, fetchChapterData)
 </script>
 
