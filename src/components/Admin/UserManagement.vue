@@ -8,11 +8,14 @@ const loading = ref(false)
 const loadingAddUser = ref(false)
 const showAddUserModal = ref(false)
 const error = ref('')
+const customUsersAvailable = ref(true)
 const newUser = ref({
   email: '',
   username: '',
   role: 'user',
 })
+
+const isMissingTableError = (err) => err?.code === 'PGRST205' || err?.code === '42P01'
 
 // === LOGIC TÌM KIẾM, SẮP XẾP & PHÂN TRANG ===
 const currentPage = ref(1)
@@ -119,18 +122,32 @@ const fetchUsers = async () => {
   error.value = ''
 
   try {
-    const [{ data: profileUsers, error: profileError }, { data: customUsers, error: customError }] =
-      await Promise.all([
-        supabase.from('profiles').select('*').order('updated_at', { ascending: false }),
-        supabase.from('custom_users').select('*').order('updated_at', { ascending: false }),
-      ])
+    const [{ data: profileUsers, error: profileError }, customResult] = await Promise.all([
+      supabase.from('profiles').select('*').order('updated_at', { ascending: false }),
+      supabase.from('custom_users').select('*').order('updated_at', { ascending: false }),
+    ])
 
     if (profileError) throw profileError
-    if (customError) throw customError
+
+    let customUsers = customResult.data || []
+    if (customResult.error) {
+      if (!isMissingTableError(customResult.error)) {
+        throw customResult.error
+      }
+
+      customUsersAvailable.value = false
+      customUsers = []
+      console.warn(
+        'Bảng public.custom_users chưa tồn tại trong Supabase. Chỉ hiển thị users từ profiles.',
+        customResult.error,
+      )
+    } else {
+      customUsersAvailable.value = true
+    }
 
     const allUsers = [
       ...(profileUsers || []).map((user) => ({ ...user, user_type: 'supabase', is_active: true })),
-      ...(customUsers || []).map((user) => ({ ...user, user_type: 'custom' })),
+      ...customUsers.map((user) => ({ ...user, user_type: 'custom' })),
     ]
 
     users.value = allUsers
@@ -177,6 +194,10 @@ const changeUserRole = async (user) => {
 const toggleUserStatus = async (user) => {
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) return
+  if (!customUsersAvailable.value) {
+    message.error('Bảng custom_users chưa tồn tại. Vui lòng chạy supabase-schema.sql trước.')
+    return
+  }
 
   try {
     const { error } = await supabase
@@ -235,6 +256,12 @@ const addUser = async () => {
   const isAdmin = await checkIsAdmin()
   if (!isAdmin) {
     loadingAddUser.value = false
+    return
+  }
+
+  if (!customUsersAvailable.value) {
+    loadingAddUser.value = false
+    message.error('Bảng custom_users chưa tồn tại. Vui lòng chạy supabase-schema.sql trước.')
     return
   }
 
