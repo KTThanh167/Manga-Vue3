@@ -76,7 +76,33 @@
                   : 'bg-white dark:bg-slate-800 text-gray-800 dark:text-gray-100 border border-gray-100 dark:border-slate-700 rounded-2xl rounded-bl-sm shadow-sm',
               ]"
             >
-              <div v-if="msg.role === 'ai'" v-html="msg.content" class="ai-content-html"></div>
+              <div v-if="msg.role === 'ai'" class="space-y-3">
+                <p class="whitespace-pre-line">{{ msg.content }}</p>
+                <div v-if="msg.recommendations?.length" class="flex flex-col gap-2">
+                  <a
+                    v-for="manga in msg.recommendations"
+                    :key="manga.slug"
+                    :href="mangaPath(manga)"
+                    class="group flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 border border-gray-100 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-500/50 rounded-xl transition-all duration-300"
+                  >
+                    <div
+                      class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+                    >
+                      <span class="text-lg">📖</span>
+                    </div>
+                    <div class="flex flex-col overflow-hidden">
+                      <span
+                        class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors"
+                      >
+                        {{ manga.title }}
+                      </span>
+                      <span class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {{ manga.chapter_count }} chương • {{ firstGenre(manga.genres) }}
+                      </span>
+                    </div>
+                  </a>
+                </div>
+              </div>
               <div v-else>{{ msg.content }}</div>
             </div>
           </div>
@@ -180,12 +206,33 @@ const defaultMessages = () => [
   {
     role: 'ai',
     content:
-      'Chào bạn! Mình là AI tư vấn truyện siêu cấp vũ trụ đây. 🚀<br>Bạn đang muốn tìm bộ truyện có thể loại, cốt truyện hay main như thế nào?',
+      'Chào bạn! Mình là AI tư vấn truyện siêu cấp vũ trụ đây. 🚀\nBạn đang muốn tìm bộ truyện có thể loại, cốt truyện hay main như thế nào?',
   },
 ]
 
 const messages = ref(defaultMessages())
 const lastSearchParams = ref(null)
+
+const stripHtml = (value = '') =>
+  value
+    .toString()
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .trim()
+
+const normalizeStoredMessage = (message) => {
+  if (!message || typeof message !== 'object') return null
+
+  return {
+    role: message.role === 'user' ? 'user' : 'ai',
+    content: stripHtml(message.content || ''),
+    recommendations: Array.isArray(message.recommendations) ? message.recommendations : [],
+  }
+}
+
+const firstGenre = (genres = '') => genres.toString().split(',')[0]?.trim() || 'Truyện tranh'
+
+const mangaPath = (manga) => `/truyen/${encodeURIComponent(manga.slug)}?isLocal=false`
 
 const loadChatHistory = () => {
   const savedChat = localStorage.getItem(chatStorageKey.value)
@@ -197,7 +244,10 @@ const loadChatHistory = () => {
 
   try {
     const parsedChat = JSON.parse(savedChat)
-    messages.value = Array.isArray(parsedChat) ? parsedChat : defaultMessages()
+    const normalizedChat = Array.isArray(parsedChat)
+      ? parsedChat.map(normalizeStoredMessage).filter(Boolean)
+      : []
+    messages.value = normalizedChat.length ? normalizedChat : defaultMessages()
   } catch (error) {
     console.warn('Không thể đọc lịch sử chat AI:', error)
     messages.value = defaultMessages()
@@ -484,6 +534,7 @@ const sendMessage = async () => {
     console.log('5. Bắt đầu gọi AI viết câu chào...')
     loadingMessage.value = 'Đang trau chuốt lại câu trả lời...'
     let aiReply = ''
+    let recommendations = []
 
     if (!matchedMangas || matchedMangas.length === 0) {
       aiReply =
@@ -523,30 +574,15 @@ const sendMessage = async () => {
       }
 
       aiReply = greetingText // Dùng câu chào của AI (hoặc câu mặc định nếu AI lỗi)
-
-      // Gắn giao diện thẻ truyện (có thêm thông tin chương và thể loại)
-      aiReply += `<div class="mt-3 flex flex-col gap-2">`
-      matchedMangas.forEach((m) => {
-        aiReply += `
-        <a href="/truyen/${m.slug}?isLocal=false"
-           class="group flex items-center gap-3 p-2.5 bg-gray-50 dark:bg-slate-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 border border-gray-100 dark:border-slate-600 hover:border-indigo-200 dark:hover:border-indigo-500/50 rounded-xl transition-all duration-300">
-          <div class="w-8 h-8 rounded-lg bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-            <span class="text-lg">📖</span>
-          </div>
-          <div class="flex flex-col overflow-hidden">
-            <span class="font-bold text-gray-800 dark:text-gray-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 text-sm line-clamp-1 transition-colors">
-              ${m.title}
-            </span>
-            <span class="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-              ${m.chapter_count} chương • ${m.genres.split(',')[0] || 'Truyện tranh'}
-            </span>
-          </div>
-        </a>`
-      })
-      aiReply += `</div>`
+      recommendations = matchedMangas.map((m) => ({
+        slug: m.slug,
+        title: m.title,
+        genres: m.genres,
+        chapter_count: m.chapter_count,
+      }))
     }
 
-    messages.value.push({ role: 'ai', content: aiReply })
+    messages.value.push({ role: 'ai', content: stripHtml(aiReply), recommendations })
     console.log('6. HOÀN THÀNH TẤT CẢ!')
   } catch (err) {
     console.error('BỊ LỖI RỒI:', err)
@@ -579,6 +615,7 @@ const clearHistory = () => {
         {
           role: 'ai',
           content: 'Tadaa! Mình là trợ lý truyện tranh đây. Bạn đang muốn tìm thể loại gì nào? 🕵️‍♂️',
+          recommendations: [],
         },
       ]
 
@@ -654,8 +691,4 @@ watch(isOpen, (opened) => {
   }
 }
 
-/* Xử lý khoảng cách thẻ a bên trong nội dung AI */
-:deep(.ai-content-html a) {
-  text-decoration: none;
-}
 </style>
