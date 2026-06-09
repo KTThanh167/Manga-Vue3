@@ -10,7 +10,7 @@ export const sync50Mangas = async () => {
     const apiKey = rawKey.trim()
 
     // ==========================================
-    // BƯỚC 1: KHÁM BỆNH - ÉP GOOGLE "KHAI" RA MODEL CÓ SẴN
+    // BƯỚC 1: TÌM MODEL VECTOR TỪ GOOGLE THEO API KEY
     // ==========================================
     console.log('🔍 Đang hỏi Google xem API Key này được dùng model Vector nào...')
     const checkRes = await fetch(
