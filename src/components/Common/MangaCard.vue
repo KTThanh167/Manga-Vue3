@@ -68,9 +68,9 @@
 
       <div
         v-if="!manga.isLocal && latestChapters.length > 0"
-        class="absolute top-2 right-2 bg-black/70 backdrop-blur-md text-white text-[10px] font-bold px-2 py-1 rounded-md border border-white/10 shadow-sm z-10"
+        class="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-black tracking-widest uppercase px-2 py-1 rounded-md border border-white/30 shadow-sm shadow-red-500/40 z-10 animate-pulse"
       >
-        {{ timeAgo(manga.updatedAt) }}
+        NEW
       </div>
     </div>
 
@@ -258,16 +258,6 @@ const onImageError = (event) => {
   event.target.src = fallback
 }
 
-const timeAgo = (dateString) => {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  const diff = Math.floor((new Date() - date) / 1000)
-
-  if (diff < 60) return 'Vừa xong'
-  if (diff < 3600) return Math.floor(diff / 60) + ' phút trước'
-  if (diff < 86400) return Math.floor(diff / 3600) + ' giờ trước'
-  return Math.floor(diff / 86400) + ' ngày trước'
-}
 </script>
 
 <style scoped>
