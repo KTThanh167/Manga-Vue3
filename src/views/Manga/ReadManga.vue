@@ -149,6 +149,12 @@ const error = ref(null)
 const isReaderHeaderVisible = ref(true)
 const lastScrollY = ref(0)
 
+const OTRUYEN_CHAPTER_UNAVAILABLE_MESSAGE =
+  'Nguồn chương từ OTruyen hiện không khả dụng. Vui lòng thử truyện nội bộ hoặc quay lại sau.'
+
+const buildChapterApiUrl = (apiUrl) =>
+  `/api/otruyen-chapter?url=${encodeURIComponent(apiUrl)}`
+
 const normalizeData = (data, isLocal, extra = {}) => {
   if (isLocal) {
     return {
@@ -210,7 +216,7 @@ const fetchChapterData = async () => {
       if (!apiUrl) apiUrl = `https://otruyenapi.com/v1/api/chuong/${slug}-chuong-${chapterNum}`
 
       const [chapterRes, detailRes] = await Promise.all([
-        axios.get(apiUrl),
+        axios.get(buildChapterApiUrl(apiUrl)),
         axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`),
       ])
       if (chapterRes.data?.status === 'success') {
@@ -224,10 +230,14 @@ const fetchChapterData = async () => {
         const categories = detailDataApi?.item?.category?.map((c) => c.name) || []
         const { manga, chapter } = normalizeData(chapterDataApi, false, { category: categories })
         await mangaStore.recordReadingHistory(manga, chapter)
+      } else {
+        throw new Error(OTRUYEN_CHAPTER_UNAVAILABLE_MESSAGE)
       }
     }
   } catch (err) {
-    error.value = err.message || 'Chương này đang được cập nhật hoặc link đã thay đổi.'
+    error.value = isLocal
+      ? err.message || 'Chương này chưa có dữ liệu ảnh.'
+      : OTRUYEN_CHAPTER_UNAVAILABLE_MESSAGE
   } finally {
     loading.value = false
   }
