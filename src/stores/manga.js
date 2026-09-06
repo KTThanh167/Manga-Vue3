@@ -151,6 +151,7 @@ export const useMangaStore = defineStore('manga', {
 
       // 1. Kiểm tra ưu tiên trong mảng Local trước (Luôn có sẵn và nhanh)
       const isFoundInLocal = this.followedMangas.some((m) => m.slug === slug)
+      this.isFollowed = isFoundInLocal
 
       if (auth.user) {
         // 2. Nếu đăng nhập, check thêm DB để đảm bảo đồng bộ
@@ -212,26 +213,45 @@ export const useMangaStore = defineStore('manga', {
         }
       }
 
-      // 3. UPDATE CHƯƠNG MỚI (Làm tươi dữ liệu)
-      // Dù dữ liệu từ DB hay từ LocalStorage, ta vẫn cập nhật lại chapter mới nhất
-      if (this.followedMangas.length > 0) {
-        this.followedMangas = await Promise.all(
-          this.followedMangas.map(async (manga) => {
+      // 3. UPDATE CHƯƠNG MỚI cho truyện Otruyen ở nền để tủ sách/truyện nội bộ không bị chờ API ngoài.
+      const externalMangas = this.followedMangas.filter((manga) => !(manga.isLocal || manga.is_local))
+
+      if (externalMangas.length > 0) {
+        Promise.all(
+          externalMangas.map(async (manga) => {
             try {
               const res = await axios.get(
                 `https://otruyenapi.com/v1/api/truyen-tranh/${manga.slug}`,
+                { timeout: 4000 },
               )
               if (res.data?.data?.item?.chaptersLatest) {
-                return { ...manga, chaptersLatest: res.data.data.item.chaptersLatest }
+                return {
+                  slug: manga.slug,
+                  chaptersLatest: res.data.data.item.chaptersLatest,
+                }
               }
             } catch {
               console.warn(`Không cập nhật được chương mới cho ${manga.slug}`)
             }
-            return manga // Trả về manga cũ nếu API lỗi
+            return null
           }),
-        )
-        // Lưu lại bản cập nhật nhất vào LocalStorage
-        localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
+        ).then((updates) => {
+          const validUpdates = updates.filter(Boolean)
+          if (validUpdates.length === 0) return
+
+          this.followedMangas = this.followedMangas.map((manga) => {
+            const update = validUpdates.find((item) => item.slug === manga.slug)
+            if (!update) return manga
+
+            return {
+              ...manga,
+              chaptersLatest: update.chaptersLatest,
+              chapters_latest: update.chaptersLatest,
+            }
+          })
+
+          localStorage.setItem('manga_followed', JSON.stringify(this.followedMangas))
+        })
       }
     },
 
@@ -239,6 +259,7 @@ export const useMangaStore = defineStore('manga', {
       const auth = useAuthStore()
 
       const index = this.followedMangas.findIndex((m) => m.slug === manga.slug)
+      const isLocalManga = !!(manga.isLocal || manga.is_local)
 
       // Xử lý logic Toggle
       if (index > -1) {
@@ -263,7 +284,17 @@ export const useMangaStore = defineStore('manga', {
         // --- CƠ CHẾ TỰ BỔ SUNG DỮ LIỆU ---
         let chaptersToSave = manga.chaptersLatest || []
 
-        if (chaptersToSave.length === 0) {
+        if (chaptersToSave.length === 0 && isLocalManga) {
+          const localChapters = manga.chapters?.[0]?.server_data || []
+          chaptersToSave = [
+            {
+              server_name: 'Nội bộ',
+              server_data: localChapters,
+            },
+          ]
+        }
+
+        if (chaptersToSave.length === 0 && !isLocalManga) {
           console.log('⚠️ Dữ liệu chương bị trống, đang fetch lại từ API...')
           try {
             const res = await axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${manga.slug}`)
@@ -289,9 +320,11 @@ export const useMangaStore = defineStore('manga', {
 
         const newManga = {
           ...manga,
-          isLocal: !!manga.isLocal,
+          isLocal: isLocalManga,
+          is_local: isLocalManga,
           category: manga.category || [],
           chaptersLatest: chaptersToSave,
+          chapters_latest: chaptersToSave,
         }
 
         this.followedMangas.unshift(newManga)
@@ -301,9 +334,9 @@ export const useMangaStore = defineStore('manga', {
           const payload = {
             user_id: auth.user.id,
             manga_slug: manga.slug,
-            manga_name: manga.name,
+            manga_name: manga.name || manga.title,
             manga_thumb: manga.thumb_url,
-            is_local: !!manga.isLocal,
+            is_local: isLocalManga,
             category_list: newManga.category || [],
             chapters_latest: chaptersToSave, // Lưu dữ liệu đã có
             updated_at: manga.updatedAt,
