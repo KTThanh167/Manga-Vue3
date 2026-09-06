@@ -1,4 +1,5 @@
 const ALLOWED_HOSTS = new Set(['sv1.otruyencdn.com', 'otruyenapi.com'])
+const CHAPTER_TIMEOUT_MS = 7000
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -24,7 +25,7 @@ export default async function handler(req, res) {
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 25000)
+  const timeout = setTimeout(() => controller.abort(), CHAPTER_TIMEOUT_MS)
 
   try {
     const upstream = await fetch(chapterUrl.toString(), {
