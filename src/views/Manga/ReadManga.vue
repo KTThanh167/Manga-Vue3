@@ -151,6 +151,7 @@ const lastScrollY = ref(0)
 
 const OTRUYEN_CHAPTER_UNAVAILABLE_MESSAGE =
   'Nguồn chương từ OTruyen hiện không khả dụng. Vui lòng thử truyện nội bộ hoặc quay lại sau.'
+const OTRUYEN_CHAPTER_TIMEOUT_MS = 8000
 
 const buildChapterApiUrl = (apiUrl) =>
   `/api/otruyen-chapter?url=${encodeURIComponent(apiUrl)}`
@@ -216,7 +217,7 @@ const fetchChapterData = async () => {
       if (!apiUrl) apiUrl = `https://otruyenapi.com/v1/api/chuong/${slug}-chuong-${chapterNum}`
 
       const [chapterRes, detailRes] = await Promise.all([
-        axios.get(buildChapterApiUrl(apiUrl)),
+        axios.get(buildChapterApiUrl(apiUrl), { timeout: OTRUYEN_CHAPTER_TIMEOUT_MS }),
         axios.get(`https://otruyenapi.com/v1/api/truyen-tranh/${slug}`),
       ])
       if (chapterRes.data?.status === 'success') {
