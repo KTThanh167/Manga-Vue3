@@ -180,6 +180,21 @@ const goToCategory = (cat) => {
   router.push({ path: '/search', query: { category: cat.slug } })
 }
 
+const getChapterNumber = (chapter) => Number.parseFloat(chapter.chapter_name)
+
+const getFirstChapter = (serverData) => {
+  return [...serverData].sort((a, b) => {
+    const chapterA = getChapterNumber(a)
+    const chapterB = getChapterNumber(b)
+
+    if (Number.isNaN(chapterA) && Number.isNaN(chapterB)) return 0
+    if (Number.isNaN(chapterA)) return 1
+    if (Number.isNaN(chapterB)) return -1
+
+    return chapterA - chapterB
+  })[0]
+}
+
 /**
  * HÀM ĐỌC TỪ ĐẦU
  */
@@ -190,7 +205,12 @@ const startReading = () => {
   }
 
   const serverData = props.manga.chapters[0].server_data
-  const firstChapter = serverData[0]
+  const firstChapter = getFirstChapter(serverData)
+
+  if (!firstChapter) {
+    alert('Truyện chưa có chương để đọc!')
+    return
+  }
 
   const apiLink = firstChapter.chapter_api_data
   const isLocalManga = !apiLink
