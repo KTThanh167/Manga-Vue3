@@ -347,6 +347,7 @@ defineExpose({
           </svg>
         </button>
         <button
+          v-if="false"
           @click="showAddUserModal = true"
           class="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-blue-500/30 transform hover:-translate-y-0.5 active:scale-95 transition-all"
         >
@@ -731,7 +732,7 @@ defineExpose({
     </div>
 
     <div
-      v-if="showAddUserModal"
+      v-if="false && showAddUserModal"
       class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
     >
       <div
